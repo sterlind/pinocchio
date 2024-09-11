@@ -16,12 +16,6 @@ typedef enum logic [3:0] {
     ALU_NONE
 } alu_op_t;
 
-typedef enum logic [2:0] {
-    M1, // Latch next instruction and reset state counter.
-    M2,
-    M3
-} seq_state_t;
-
 module sm83 (
     input wire clk,
     input wire [7:0] d_in,
@@ -124,8 +118,49 @@ module r8_decoder (
 endmodule
 
 typedef enum logic [7:0] {
+    LD_R_R = 8'b01xxxxxx,
     LD_R_N = 8'b00xxx110
 } opcode_t;
+
+type enum logic [1:0] {
+    ALU_R8_R8,
+    ALU_R8_IMM8
+} addr_mode_t;
+
+typedef enum logic [1:0] {
+    SEQ_READ_IMM8,
+    SEQ_READ_HL,
+    SEQ_WRITE_HL,
+    SEQ_EXEC,
+    SEQ_IDLE
+} seq_state_t;
+
+module sequencer (
+    input addr_mode_t ir,
+    input seq_state_t curr_s,
+    output seq_state_t next_s
+);
+    r8_decoder r8_x (.r8(ir[5:3]));
+    r8_decoder r8_y (.r8(ir[2:0]));
+
+    always @(*)
+        case (addr_mode_t)
+            ALU_R8_R8:
+                case (curr_s)
+                    SEQ_IDLE: next_s = r8_y.is_hl ? SEQ_READ_HL : SEQ_EXEC;
+                    SEQ_READ_HL: next_s = SEQ_EXEC;
+                    SEQ_EXEC: next_s = r8_x.is_hl ? SEQ_WRITE_HL : SEQ_IDLE;
+                    SEQ_WRITE_HL: next_s = SEQ_IDLE;
+                endcase
+            ALU_R8_IMM8:
+                case (curr_s)
+                    SEQ_IDLE: next_s = SEQ_READ_IMM8;
+                    SEQ_READ_IMM8: next_s = SEQ_EXEC;
+                    SEQ_EXEC: next_s = r8_x.is_hl ? SEQ_WRITE_HL : SEQ_IDLE;
+                    SEQ_WRITE_HL: next_s = SEQ_IDLE;
+                endcase
+        endcase
+endmodule
 
 module decoder (
     input opcode_t ir,
@@ -143,6 +178,19 @@ module decoder (
 
     always @(*)
         casez ({ir, curr_s})
+            // LD r, r'
+            {LD_R_R, M2}: begin
+                // r <- r'
+                s_dbi = r8_2_0.s_db;
+                t_dbo = r8_5_3.s_db;
+                alu_op = ALU_NONE;
+                // PC <- PC + 1
+                s_abi = AB_PC;
+                t_abo = AB_PC;
+                idu_op = IDU_INC;
+                next_s = M3;
+                next_s = M1;
+            end
             // LD r, n
             {LD_R_N, M2}: begin
                 // Z <- M
