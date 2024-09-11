@@ -183,31 +183,58 @@ module decoder (
     r8_decoder r8_5_3 (.r8(ir[5:3]));
     r8_decoder r8_2_0 (.r8(ir[2:0]));
 
-    always @(*)
-        case (state)
-            SEQ_EXEC:
-                casez (ir)
-                    // LD r, r'
-                    LD_R_R: begin
-                        // r <- r'
-                        s_dbi = r8_2_0.s_db;
-                        t_dbo = r8_5_3.s_db;
-                        alu_op = ALU_NONE;
-                        // PC <- PC + 1
-                        s_abi = AB_PC;
-                        t_abo = AB_PC;
-                        idu_op = IDU_INC;
-                    end
-                    LD_R_N: begin
-                        // r <- Z
-                        s_dbi = DB_Z;
-                        t_dbo = r8_5_3.s_db;
-                        alu_op = ALU_NONE;
-                        // PC <- PC + 1
-                        s_abi = AB_PC;
-                        t_abo = AB_PC;
-                        idu_op = IDU_INC;
-                    end
-                endcase
-        endcase
+    always @(*) case (state)
+        SEQ_READ_HL: begin
+            // addr <- HL
+            s_abi = AB_HL;
+            // Z <- M
+            s_dbi = DB_M;
+            t_dbo = DB_Z;
+            alu_op = ALU_NONE;
+        end
+        SEQ_WRITE_HL: begin
+            // addr <- HL
+            s_abi = AB_HL;
+            // M <- ?
+            t_dbo = DB_M;
+            alu_op = ALU_NONE;
+            casez (ir)
+                LD_R_R, LD_R_N: s_dbi = r8_5_3.s_db;
+            endcase
+        end
+        SEQ_READ_IMM8: begin
+            // Z <- M
+            s_dbi = DB_M;
+            t_dbo = DB_Z;
+            alu_op = ALU_NONE;
+            // PC <- PC + 1
+            s_abi = AB_PC;
+            t_abo = AB_PC;
+            idu_op = IDU_INC;
+        end
+        SEQ_EXEC:
+            casez (ir)
+                // LD r, r'
+                LD_R_R: begin
+                    // r <- r'
+                    s_dbi = r8_2_0.s_db;
+                    t_dbo = r8_5_3.s_db;
+                    alu_op = ALU_NONE;
+                    // PC <- PC + 1
+                    s_abi = AB_PC;
+                    t_abo = AB_PC;
+                    idu_op = IDU_INC;
+                end
+                LD_R_N: begin
+                    // r <- Z
+                    s_dbi = DB_Z;
+                    t_dbo = r8_5_3.s_db;
+                    alu_op = ALU_NONE;
+                    // PC <- PC + 1
+                    s_abi = AB_PC;
+                    t_abo = AB_PC;
+                    idu_op = IDU_INC;
+                end
+            endcase
+    endcase
 endmodule
