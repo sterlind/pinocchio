@@ -139,6 +139,7 @@ typedef enum logic [2:0] {
 module sequencer (
     input opcode_t ir,
     output addr_mode_t addr_mode,
+    output s_ab_t s_abi,
     input seq_state_t curr_s,
     output seq_state_t next_s
 );
@@ -157,14 +158,14 @@ module sequencer (
                 case (curr_s)
                     SEQ_IDLE: next_s = r8_y.is_hl ? SEQ_READ_HL : SEQ_EXEC;
                     SEQ_READ_HL: next_s = SEQ_EXEC;
-                    SEQ_EXEC: next_s = r8_x.is_hl ? SEQ_WRITE_HL : SEQ_IDLE;
+                    SEQ_EXEC: next_s = r8_x.is_hl ? SEQ_IDLE : SEQ_WRITE_HL;
                     SEQ_WRITE_HL: next_s = SEQ_IDLE;
                 endcase
             ALU_R8_IMM8:
                 case (curr_s)
                     SEQ_IDLE: next_s = SEQ_READ_IMM8;
                     SEQ_READ_IMM8: next_s = SEQ_EXEC;
-                    SEQ_EXEC: next_s = r8_x.is_hl ? SEQ_WRITE_HL : SEQ_IDLE;
+                    SEQ_EXEC: next_s = SEQ_IDLE;
                     SEQ_WRITE_HL: next_s = SEQ_IDLE;
                 endcase
         endcase
@@ -177,6 +178,7 @@ module decoder (
     output s_db_t s_dbi,
     output s_db_t t_dbo,
     output s_ab_t s_abi,
+    output s_ab_t s_abi_in,
     output s_ab_t t_abo,
     output idu_op_t idu_op
 );
