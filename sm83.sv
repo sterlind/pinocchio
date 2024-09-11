@@ -99,7 +99,7 @@ endmodule
 
 module r8_decoder (
     input wire [2:0] r8,
-    output reg is_hl,
+    output bit is_hl,
     output s_db_t s_db
 );
     always @(*) begin
@@ -122,12 +122,13 @@ typedef enum logic [7:0] {
     LD_R_N = 8'b00xxx110
 } opcode_t;
 
-type enum logic [1:0] {
+typedef enum logic [2:0] {
     ALU_R8_R8,
-    ALU_R8_IMM8
+    ALU_R8_IMM8,
+    ALU_R8_R16M
 } addr_mode_t;
 
-typedef enum logic [1:0] {
+typedef enum logic [2:0] {
     SEQ_READ_IMM8,
     SEQ_READ_HL,
     SEQ_WRITE_HL,
@@ -136,7 +137,8 @@ typedef enum logic [1:0] {
 } seq_state_t;
 
 module sequencer (
-    input addr_mode_t ir,
+    input opcode_t ir,
+    output addr_mode_t addr_mode,
     input seq_state_t curr_s,
     output seq_state_t next_s
 );
@@ -144,7 +146,13 @@ module sequencer (
     r8_decoder r8_y (.r8(ir[2:0]));
 
     always @(*)
-        case (addr_mode_t)
+        casez (ir)
+            LD_R_R: addr_mode = ALU_R8_R8;
+            LD_R_N: addr_mode = ALU_R8_IMM8;
+        endcase
+
+    always @(*)
+        case (addr_mode)
             ALU_R8_R8:
                 case (curr_s)
                     SEQ_IDLE: next_s = r8_y.is_hl ? SEQ_READ_HL : SEQ_EXEC;
@@ -164,8 +172,7 @@ endmodule
 
 module decoder (
     input opcode_t ir,
-    input seq_state_t curr_s,
-    output seq_state_t next_s,
+    input seq_state_t state,
     output alu_op_t alu_op,
     output s_db_t s_dbi,
     output s_db_t t_dbo,
@@ -177,42 +184,30 @@ module decoder (
     r8_decoder r8_2_0 (.r8(ir[2:0]));
 
     always @(*)
-        casez ({ir, curr_s})
-            // LD r, r'
-            {LD_R_R, M2}: begin
-                // r <- r'
-                s_dbi = r8_2_0.s_db;
-                t_dbo = r8_5_3.s_db;
-                alu_op = ALU_NONE;
-                // PC <- PC + 1
-                s_abi = AB_PC;
-                t_abo = AB_PC;
-                idu_op = IDU_INC;
-                next_s = M3;
-                next_s = M1;
-            end
-            // LD r, n
-            {LD_R_N, M2}: begin
-                // Z <- M
-                s_dbi = DB_M;
-                t_dbo = DB_Z;
-                alu_op = ALU_NONE;
-                // PC <- PC + 1
-                s_abi = AB_PC;
-                t_abo = AB_PC;
-                idu_op = IDU_INC;
-                next_s = M3;
-            end
-            {LD_R_N, M3}: begin
-                // r <- Z
-                s_dbi = DB_Z;
-                t_dbo = r8_5_3.s_db;
-                alu_op = ALU_NONE;
-                // PC <- PC + 1
-                s_abi = AB_PC;
-                t_abo = AB_PC;
-                idu_op = IDU_INC;
-                next_s = M1;
-            end
+        case (state)
+            SEQ_EXEC:
+                casez (ir)
+                    // LD r, r'
+                    LD_R_R: begin
+                        // r <- r'
+                        s_dbi = r8_2_0.s_db;
+                        t_dbo = r8_5_3.s_db;
+                        alu_op = ALU_NONE;
+                        // PC <- PC + 1
+                        s_abi = AB_PC;
+                        t_abo = AB_PC;
+                        idu_op = IDU_INC;
+                    end
+                    LD_R_N: begin
+                        // r <- Z
+                        s_dbi = DB_Z;
+                        t_dbo = r8_5_3.s_db;
+                        alu_op = ALU_NONE;
+                        // PC <- PC + 1
+                        s_abi = AB_PC;
+                        t_abo = AB_PC;
+                        idu_op = IDU_INC;
+                    end
+                endcase
         endcase
 endmodule
