@@ -119,13 +119,15 @@ endmodule
 
 typedef enum logic [7:0] {
     LD_R_R = 8'b01xxxxxx,
-    LD_R_N = 8'b00xxx110
+    LD_R_N = 8'b00xxx110,
+    JR_E = 8'b00011000
 } opcode_t;
 
 typedef enum logic [2:0] {
     ALU_R8_R8,
     ALU_R8_IMM8,
-    ALU_R8_R16M
+    ALU_R8_R16M,
+    JR_E8
 } addr_mode_t;
 
 typedef enum logic [2:0] {
@@ -150,6 +152,7 @@ module sequencer (
         casez (ir)
             LD_R_R: addr_mode = ALU_R8_R8;
             LD_R_N: addr_mode = ALU_R8_IMM8;
+            JR_E: addr_mode = JR_E8;
         endcase
 
     always @(*)
@@ -168,6 +171,12 @@ module sequencer (
                     SEQ_EXEC: next_s = SEQ_IDLE;
                     SEQ_WRITE_HL: next_s = SEQ_IDLE;
                 endcase
+            JR_E8:
+                case (curr_s)
+                    SEQ_IDLE: next_s = SEQ_READ_IMM8;
+                    SEQ_READ_IMM8: next_s = SEQ_EXEC;
+                    SEQ_EXEC: next_s = SEQ_IDLE;
+                    SEQ_WRITE_HL: next_s = SEQ_IDLE;
         endcase
 endmodule
 
