@@ -1,14 +1,39 @@
 typedef enum logic [7:0] {
-    LD_HL_N     = 8'b00110110,
-    LD_R_N      = 8'b00xxx110,
-    LD_HL_R     = 8'b00110xxx,
-    LD_R_HL     = 8'b01xxx110,
-    LD_R_R      = 8'b01xxxxxx,
+    // Block 0:
+    NOP         = 8'b00000000,
+
+    LD_RR_NN    = 8'b00xx0001,
     LD_A_R16M   = 8'b00xx0010,
     LD_R16M_A   = 8'b00xx1010,
+    LD_NN_SP    = 8'b00001000,
+
+    INC_RR      = 8'b00xx0011,
+    DEC_RR      = 8'b00xx1011,
+    ADD_HL_NN   = 8'b00xx1001,
+
+    INC_HL      = 8'b00110100,
+    INC_R       = 8'b00xxx100,
+    DEC_HL      = 8'b00110101,
+    DEC_R       = 8'b00xxx101,
+
+    LD_HL_N     = 8'b00110110,
+    LD_R_N      = 8'b00xxx110,
+
+    JR_E        = 8'b00111000,
+    JR_CC_E     = 8'b001xx000,
+    
+    // Block 1:
+    LD_HL_R     = 8'b01110xxx,
+    LD_R_HL     = 8'b01xxx110,
+    LD_R_R      = 8'b01xxxxxx,
+
+    // Block 2:
     ALU_A_HL    = 8'b10xxx110,
     ALU_A_R     = 8'b10xxxxxx,
+
+    // Block 3:
     ALU_A_N     = 8'b11xxx110,
+    
     LD_A_NN     = 8'b11111010,
     LD_NN_A     = 8'b11101010
 } opcode_t;
