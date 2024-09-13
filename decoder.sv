@@ -33,7 +33,7 @@ typedef enum logic [7:0] {
 
     // Block 3:
     ALU_A_N     = 8'b11xxx110,
-    
+
     LD_A_NN     = 8'b11111010,
     LD_NN_A     = 8'b11101010
 } opcode_t;
@@ -50,7 +50,7 @@ typedef enum logic [2:0] {
 } alu_op_t;
 
 typedef enum logic [2:0] {
-    WZ, BC, DE, HL, SP, PC
+    WZ, BC, DE, HL, SP, PC, REG16_ANY = 3'bxxx
 } reg16_t;
 
 typedef enum logic [3:0] {
@@ -60,6 +60,10 @@ typedef enum logic [3:0] {
 typedef enum logic [1:0] {
     ACC_DB, ACC_SPL, ACC_SPH, ACC_PCL
 } s_acc_t;
+
+typedef enum logic [1:0] {
+    RR_WB_NONE, RR_WB_IDU, RR_WB_WZ
+} s_rr_wb_t;
 
 typedef enum bit { INC, DEC } idu_mode_t;
 
@@ -79,17 +83,31 @@ module r8_decoder(
     endcase
 endmodule
 
-module r16m_decoder(
-    input wire [1:0] r16m,
+module r16_decoder(
+    input wire [1:0] r16,
     output reg16_t r_idx,
     output reg8_t rh_idx,
     output reg8_t rl_idx
 );
-    always @(*) case (r16m)
+    always @(*) case (r16)
         2'd0: {r_idx, rh_idx, rl_idx} = {BC, B, C};
         2'd1: {r_idx, rh_idx, rl_idx} = {DE, D, E};
         2'd2: {r_idx, rh_idx, rl_idx} = {HL, H, L};
         2'd3: {r_idx, rh_idx, rl_idx} = {SP, SPH, SPL};
+    endcase
+endmodule
+
+module r16m_decoder(
+    input wire [1:0] r16,
+    output reg16_t s_ab,
+    output idu_mode_t idu,
+    output s_rr_wb_t s_rr_wb
+);
+    always @(*) case (r16)
+        2'd0: {s_ab, idu, s_rr_wb} = {BC, idu_mode_t'('x), RR_WB_NONE};
+        2'd1: {s_ab, idu, s_rr_wb} = {DE, idu_mode_t'('x), RR_WB_NONE};
+        2'd2: {s_ab, idu, s_rr_wb} = {HL, INC, RR_WB_IDU};
+        2'd3: {s_ab, idu, s_rr_wb} = {HL, DEC, RR_WB_IDU};
     endcase
 endmodule
 
@@ -106,6 +124,8 @@ module decoder(
     output alu_op_t alu_op,         // ALU operation to perform? 
     output s_acc_t s_acc,           // Where to source ALU accumulator from?
     output idu_mode_t idu,          // Increment or decrement?
+    output s_rr_wb_t s_rr_wb,       // R16 writeback source?
+    output reg16_t t_rr_wb,         // R16 writeback target?
     output logic wr_pc,             // Latch PC from IDU out?
     output logic write_mem          // Request an external write?
 );
@@ -113,15 +133,28 @@ module decoder(
     r8_decoder dc_r8_dst(.r8(opcode[5:3]), .r_idx(r8_dst));
     r8_decoder dc_r8_src(.r8(opcode[2:0]), .r_idx(r8_src));
 
-    reg16_t r16m;
+    reg16_t r16;
     reg8_t r16h, r16l;
-    r16m_decoder dc_r16m(.r16m(opcode[5:4]), .r_idx(r16m), .rh_idx(r16h), .rl_idx(r16l));
+    r16_decoder dc_r16(.r16(opcode[5:4]), .r_idx(r16), .rh_idx(r16h), .rl_idx(r16l));
+
+    r16m_decoder r16m (.r16(opcode[5:4]));
 
     always @(*) begin
         // Defaults:
-        done = 0; is_cond = 0; write_mem = 0; wr_pc = 0; use_alu = 0; idu = INC; alu_op = alu_op_t'(opcode[5:3]); s_acc = ACC_DB;
+        done = 0; is_cond = 0; write_mem = 0; wr_pc = 0;
+        use_alu = 0; idu = INC; alu_op = alu_op_t'(opcode[5:3]); s_acc = ACC_DB; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
 
         casez ({opcode, step})
+            {LD_RR_NN,  3'd0}: /* z <- [pc]; inc pc */              begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {LD_RR_NN,  3'd1}: /* w <- [pc]; inc pc */              begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
+            {LD_RR_NN,  3'd2}: /* r16 <- wz; inc pc; done */        begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_rr_wb = RR_WB_WZ; t_rr_wb = r16; end
+
+            {LD_A_R16M, 3'd0}: /* z <- [r16m]; maybe inc/dec hl */  begin idu = r16m.idu; s_rr_wb = r16m.s_rr_wb; t_rr_wb = HL; s_ab = r16m.s_ab; s_db = MEM; t_db = Z; end
+            {LD_A_R16M, 3'd1}: /* a <- z; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = A; end
+
+            {LD_R16M_A, 3'd0}: /* [r16m] <- a; maybe inc/dec hl */  begin idu = r16m.idu; s_rr_wb = r16m.s_rr_wb; t_rr_wb = HL; s_ab = r16m.s_ab; s_db = A; write_mem = 1; end
+            {LD_R16M_A, 3'd1}: /* inc pc; done */                   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
             {LD_HL_N,   3'd0}: /* z <- [pc]; inc pc */              begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end                    
             {LD_HL_N,   3'd1}: /* [hl] <- z */                      begin s_ab = HL; s_db = Z; write_mem = 1; end                                       
             {LD_HL_N,   3'd2}: /* inc pc; done */                   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
@@ -137,11 +170,13 @@ module decoder(
 
             {LD_R_R,    3'd0}: /* r8_dst <- r8_src; inc pc; done */ begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = r8_src; t_db = r8_dst; end
 
-            {LD_A_R16M, 3'd0}: /* z <- [r16m] */                    begin s_ab = r16m; s_db = MEM; t_db = Z; end
-            {LD_A_R16M, 3'd1}: /* a <- z; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = A; end
+            {ALU_A_HL,  3'd0}: /* z <- [hl] */                      begin s_ab = HL; s_db = MEM; t_db = Z; end
+            {ALU_A_HL,  3'd1}: /* a <- alu(a, z); inc pc; done */   begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; use_alu = 1; end
 
-            {LD_R16M_A, 3'd0}: /* [r16m] <- a */                    begin s_ab = r16m; s_db = A; write_mem = 1; end
-            {LD_R16M_A, 3'd1}: /* inc pc; done */                   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+            {ALU_A_R,   3'd0}: /* a <- alu(a, r); inc pc; done */   begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r8_src; t_db = A; use_alu = 1; end
+
+            {ALU_A_N,   3'd0}: /* z <- [pc]; inc pc */              begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */   begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; use_alu = 1; end
 
             {LD_A_NN,   3'd0}: /* z <- [pc]; inc pc */              begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_A_NN,   3'd1}: /* w <- [pc]; inc pc */              begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
@@ -152,14 +187,6 @@ module decoder(
             {LD_NN_A,   3'd1}: /* w <- [pc]; inc pc */              begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {LD_NN_A,   3'd2}: /* [wz] <- a */                      begin s_ab = WZ; s_db = A; t_db = MEM; end
             {LD_NN_A,   3'd3}: /* inc pc; done */                   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
-
-            {ALU_A_N,   3'd0}: /* z <- [pc]; inc pc */              begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
-            {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */   begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; use_alu = 1; end
-
-            {ALU_A_HL,  3'd0}: /* z <- [hl] */                      begin s_ab = HL; s_db = MEM; t_db = Z; end
-            {ALU_A_HL,  3'd1}: /* a <- alu(a, z); inc pc; done */   begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; use_alu = 1; end
-
-            {ALU_A_R,   3'd0}: /* a <- alu(a, r); inc pc; done */   begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r8_src; t_db = A; use_alu = 1; end
         endcase
     end
 endmodule
