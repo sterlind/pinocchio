@@ -31,6 +31,9 @@ typedef enum logic [7:0] {
     // Block 3:
     ALU_A_N     = 8'b11xxx110,
 
+    POP_R16S    = 8'b11xx0001,
+    PUSH_R16S   = 8'b11xx0101,
+
     LD_A_NN     = 8'b11111010,
     LD_NN_A     = 8'b11101010
 } opcode_t;
@@ -47,11 +50,11 @@ typedef enum logic [2:0] {
 } alu_op_t;
 
 typedef enum logic [2:0] {
-    WZ, BC, DE, HL, SP, PC, PCH_ZERO, REG16_ANY = 3'bxxx
+    WZ, BC, DE, HL, AF, SP, PC, PCH_ZERO, REG16_ANY = 3'bxxx
 } reg16_t;
 
 typedef enum logic [3:0] {
-    MEM /* i.e. NONE */, Z, W, B, C, D, E, H, L, A, PCH, PCL, SPH, SPL, REG8_ANY = 4'bxxxx
+    MEM /* i.e. NONE */, Z, W, B, C, D, E, H, L, A, F, PCH, PCL, SPH, SPL, REG8_ANY = 4'bxxxx
 } reg8_t;
 
 typedef enum logic [1:0] {
@@ -88,6 +91,7 @@ endmodule
 
 module r16_decoder(
     input wire [1:0] r16,
+    input logic is_stk,
     output reg16_t r_idx,
     output reg8_t rh_idx,
     output reg8_t rl_idx
@@ -96,7 +100,9 @@ module r16_decoder(
         2'd0: {r_idx, rh_idx, rl_idx} = {BC, B, C};
         2'd1: {r_idx, rh_idx, rl_idx} = {DE, D, E};
         2'd2: {r_idx, rh_idx, rl_idx} = {HL, H, L};
-        2'd3: {r_idx, rh_idx, rl_idx} = {SP, SPH, SPL};
+        2'd3:
+            if (is_stk) {r_idx, rh_idx, rl_idx} = {AF, A, F};
+            else {r_idx, rh_idx, rl_idx} = {SP, SPH, SPL};
     endcase
 endmodule
 
@@ -138,12 +144,14 @@ module decoder(
 
     reg16_t r16;
     reg8_t r16h, r16l;
-    r16_decoder dc_r16(.r16(opcode[5:4]), .r_idx(r16), .rh_idx(r16h), .rl_idx(r16l));
+    reg is_stk;
+    r16_decoder dc_r16(.is_stk(is_stk), .r16(opcode[5:4]), .r_idx(r16), .rh_idx(r16h), .rl_idx(r16l));
 
     r16m_decoder r16m (.r16(opcode[5:4]));
 
     always @(*) begin
         // Defaults:
+        is_stk = 0;
         done = 0; is_cond = 0; wr_pc = 0;
         use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = alu_op_t'(opcode[5:3]); s_acc = ACC_DB; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
 
@@ -207,6 +215,15 @@ module decoder(
 
             {ALU_A_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; use_alu = 1; end
+
+            {PUSH_R16S, 3'd0}: /* dec sp */                             begin idu = DEC; s_ab = SP; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {PUSH_R16S, 3'd1}: /* [sp] <- r16h (stk); dec sp */         begin is_stk = 1; s_ab = SP; s_db = r16h; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {PUSH_R16S, 3'd2}: /* [sp] <- r16l (stk) */                 begin is_stk = 1; s_ab = SP; s_db = r16l; t_db = MEM; end
+            {PUSH_R16S, 3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {POP_R16S,  3'd0}: /* z <- [sp]; inc sp */                  begin s_ab = SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {POP_R16S,  3'd1}: /* w <- [sp]; inc sp */                  begin s_ab = SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {POP_R16S,  3'd2}: /* rr <- wz; inc pc; done */             begin is_stk = 1; done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_rr_wb = RR_WB_WZ; t_rr_wb = r16; end
 
             {LD_A_NN,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_A_NN,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
