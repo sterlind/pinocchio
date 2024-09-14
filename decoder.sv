@@ -47,7 +47,7 @@ typedef enum logic [2:0] {
 } alu_op_t;
 
 typedef enum logic [2:0] {
-    WZ, BC, DE, HL, SP, PC, REG16_ANY = 3'bxxx
+    WZ, BC, DE, HL, SP, PC, PCH_ZERO, REG16_ANY = 3'bxxx
 } reg16_t;
 
 typedef enum logic [3:0] {
@@ -66,7 +66,9 @@ typedef enum logic [1:0] {
     RR_WB_NONE, RR_WB_IDU, RR_WB_WZ
 } s_rr_wb_t;
 
-typedef enum bit { INC, DEC } idu_mode_t;
+typedef enum logic [1:0] {
+    INC, DEC, ADJ
+} idu_mode_t;
 
 module r8_decoder(
     input wire [2:0] r8,
@@ -162,26 +164,35 @@ module decoder(
             {LD_NN_SP,  3'd3}: /* [wz] <- sph */                        begin s_ab = WZ; s_db = SPH; t_db = MEM; end
             {LD_NN_SP,  3'd4}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {INCDEC_RR, 3'd0}: /* inc/dec r16 */                        begin s_ab = r16; idu = idu_mode_t'(opcode[3]); s_rr_wb = RR_WB_IDU; t_rr_wb = r16; end
+            {INCDEC_RR, 3'd0}: /* inc/dec r16 */                        begin s_ab = r16; if (opcode[3]) idu = DEC; else idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = r16; end
             {INCDEC_RR, 3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {ADD_HL_RR, 3'd0}: /* l <- add(l, r16l) */                  begin s_db = r16l; t_db = L; use_alu = 1; alu_op = ALU_ADD; end
             {ADD_HL_RR, 3'd1}: /* h <- adc(h, r16h); inc pc; done */    begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r16h; t_db = H; use_alu = 1; alu_op = ALU_ADC; end 
 
             {INCDEC_HL, 3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
-            {INCDEC_HL, 3'd1}: /* [hl] <- add(z, 1) */                  begin s_ab = HL; s_db = Z; t_db = MEM; use_alu = 1; alu_op = ALU_ADD; end
+            {INCDEC_HL, 3'd1}: /* [hl] <- add(z, 1) */                  begin s_ab = HL; s_db = Z; t_db = MEM; use_alu = 1; alu_op = ALU_ADD; s_arg = ARG_ONE; end
             {INCDEC_HL, 3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_acc = ACC_DB; s_db = r8_dst; t_db = r8_dst; use_alu = 1; if (opcode[0]) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
+            {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_arg = ARG_ONE; s_db = r8_dst; t_db = r8_dst; use_alu = 1; if (opcode[0]) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
 
             {LD_HL_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end                    
-            {LD_HL_N,   3'd1}: /* [hl] <- z */                          begin s_ab = HL; s_db = Z; end                                       
+            {LD_HL_N,   3'd1}: /* [hl] <- z */                          begin s_ab = HL; s_db = Z; t_db = MEM; end                                       
             {LD_HL_N,   3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {LD_R_N,    3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_R_N,    3'd1}: /* r8_dst <- z; inc pc; done */          begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = r8_dst; end       
 
-            {LD_HL_R,   3'd0}: /* [hl] <- r8_src */                     begin s_ab = HL; s_db = r8_src; end
+            {JR_E,      3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {JR_E,      3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; use_alu = 1; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
+            {JR_E,      3'd2}: /* pc <- inc wz; done */                 begin done = 1; idu = INC; s_ab = WZ; wr_pc = 1; end
+
+            {JR_CC_E,   3'd0}: /* z <- [pc]; inc pc; cc or goto 3 */    begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; is_cond = 1; next_cond = 3'd3; end
+            {JR_CC_E,   3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; use_alu = 1; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
+            {JR_CC_E,   3'd2}: /* pc <- inc wz; done */                 begin done = 1; idu = INC; s_ab = WZ; wr_pc = 1; end
+            {JR_CC_E,   3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {LD_HL_R,   3'd0}: /* [hl] <- r8_src */                     begin s_ab = HL; s_db = r8_src; t_db = MEM; end
             {LD_HL_R,   3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {LD_R_HL,   3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
