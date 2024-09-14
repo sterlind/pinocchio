@@ -13,8 +13,7 @@ module sm83(
     reg [7:0] rf [`MIN_REG8:`MAX_REG8];
     reg flags_t flags;
 
-    assign d_out = db;
-    always_comb addr = rst ? ab : 16'h0;
+    assign d_out = db, addr = ab;
 
     wire [7:0] ir;
     wire [2:0] step;
