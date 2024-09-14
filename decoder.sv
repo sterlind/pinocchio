@@ -142,6 +142,7 @@ endmodule
 
 module sequencer(
     input wire clk,
+    input wire rst,
     input wire done,
     input cond_t cond,
     input flags_t flags,
@@ -159,10 +160,14 @@ module sequencer(
         COND_C: matched = flags.f_c;
     endcase
 
-    always_ff @(posedge clk) begin
-        if (done) begin step = 0; ir <= d_in; end
-        else if (is_cond && !matched) step <= next_cond;
-        else step <= step + 1'b1;
+    always_ff @(posedge clk or negedge rst) begin
+        if (!rst) begin
+            step <= 0; ir <= 0;
+        end else begin
+            if (done) begin step = 0; ir <= d_in; end
+            else if (is_cond && !matched) step <= next_cond;
+            else step <= step + 1'b1;
+        end
     end
 endmodule
 
@@ -209,6 +214,7 @@ module decoder(
         use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_DB; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
 
         casez ({opcode, step})
+            {NOP,       3'd0}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
             {LD_RR_NN,  3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_RR_NN,  3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {LD_RR_NN,  3'd2}: /* r16 <- wz; inc pc; done */            begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_rr_wb = RR_WB_WZ; t_rr_wb = r16; end

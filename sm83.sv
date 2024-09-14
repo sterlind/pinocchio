@@ -2,6 +2,7 @@
 
 module sm83(
     input wire clk,
+    input wire rst,
     output wire [15:0] addr,
     input wire [7:0] d_in,
     output wire [7:0] d_out,
@@ -25,6 +26,7 @@ module sm83(
     // Sequencer:
     sequencer seq (
         .clk(clk),
+        .rst(rst),
         .done(ctrl.done),
         .cond(ctrl.cond),
         .flags(flags),
@@ -64,19 +66,25 @@ module sm83(
 
     // Register file:
     reg [15:0] rr_wb;
-    always_ff @(posedge clk) begin
-        if (ctrl.wr_pc) {rf[PCH], rf[PCL]} <= ab;
-        if (ctrl.s_rr_wb != RR_WB_NONE)
-            case (ctrl.t_rr_wb)
-                WZ: {rf[W], rf[Z]} <= rr_wb;
-                BC: {rf[B], rf[C]} <= rr_wb;
-                DE: {rf[D], rf[E]} <= rr_wb;
-                HL: {rf[H], rf[L]} <= rr_wb;
-                SP: rf[SP] <= rr_wb;
-                AF: {rf[A], flags} <= rr_wb[15:4];
-            endcase
-        write <= ctrl.t_db == MEM;
-        if (ctrl.t_db != F && ctrl.t_db != MEM) rf[ctrl.t_db] <= ctrl.use_alu ? alu.res : db;
+    always_ff @(posedge clk or negedge rst) begin
+        if (!rst) begin
+            for (int k = `MIN_REG8; k < `MAX_REG8; k = k + 1)
+                rf[k] <= 0;
+            flags <= 4'h0;
+        end else begin
+            if (ctrl.wr_pc) {rf[PCH], rf[PCL]} <= ab;
+            if (ctrl.s_rr_wb != RR_WB_NONE)
+                case (ctrl.t_rr_wb)
+                    WZ: {rf[W], rf[Z]} <= rr_wb;
+                    BC: {rf[B], rf[C]} <= rr_wb;
+                    DE: {rf[D], rf[E]} <= rr_wb;
+                    HL: {rf[H], rf[L]} <= rr_wb;
+                    SP: rf[SP] <= rr_wb;
+                    AF: {rf[A], flags} <= rr_wb[15:4];
+                endcase
+            write <= ctrl.t_db == MEM;
+            if (ctrl.t_db != F && ctrl.t_db != MEM) rf[ctrl.t_db] <= ctrl.use_alu ? alu.res : db;
+        end
     end
 
     always_comb begin
