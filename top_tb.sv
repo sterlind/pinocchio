@@ -22,11 +22,11 @@ module top_tb;
 
     initial begin
         $readmemh("rom.hex", mem, 0, 5);
-        rst = 0; clk = 0;
-        #1; clk = 1;
-        #1; clk = 0;
-        #1; clk = 1; rst = 1;
-        forever #1 clk = ~clk;
+        clk = 1; rst = 0;       // cpu's comb logic sets addr = 0 and write = 0.
+        #1; clk = 0;            // Falling edge loads d_in from addr 0.
+        clk = 1; #1;            // Raise clock. cpu latches ir from d_in and zeros regs, since ~rst.
+        rst = 1; clk = 0; #1;   // Reset is no longer asserted. cpu executes first op (comb), and its memory req is serviced by falling edge.
+        forever #1 clk = ~clk;  // Should be up and running now!
     end
 
     initial begin

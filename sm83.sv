@@ -13,7 +13,8 @@ module sm83(
     reg [7:0] rf [`MIN_REG8:`MAX_REG8];
     reg flags_t flags;
 
-    assign d_out = db, addr = ab;
+    assign d_out = db, addr = !rst ? 16'b0 : ab;
+    assign write = !rst ? 0 : (ctrl.t_db == MEM);
 
     wire [7:0] ir;
     wire [2:0] step;
@@ -82,7 +83,6 @@ module sm83(
                     SP: rf[SP] <= rr_wb;
                     AF: {rf[A], flags} <= rr_wb[15:4];
                 endcase
-            write <= ctrl.t_db == MEM;
             if (ctrl.t_db != F && ctrl.t_db != MEM)
                 if (ctrl.use_alu) begin
                     flags <= alu.f_out;
