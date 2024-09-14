@@ -54,8 +54,10 @@ typedef enum logic [2:0] {
 } reg16_t;
 
 typedef enum logic [3:0] {
-    MEM /* i.e. NONE */, Z, W, B, C, D, E, H, L, A, F, PCH, PCL, SPH, SPL, REG8_ANY = 4'bxxxx
+    MEM = 4'b0000 /* i.e. NONE */, Z, W, B, C, D, E, H, L, SPH, SPL, PCH, PCL, A, F = 4'b1111, REG8_ANY = 4'bxxxx
 } reg8_t;
+`define MIN_REG8 Z
+`define MAX_REG8 A 
 
 typedef enum logic [1:0] {
     ACC_DB, ACC_SPL, ACC_SPH, ACC_PCL
@@ -120,6 +122,23 @@ module r16m_decoder(
     endcase
 endmodule
 
+module sequencer(
+    input wire clk,
+    input wire done,
+    input wire cond_true,
+    input wire is_cond,
+    input wire [2:0] next_cond,
+    input wire [7:0] d_in,
+    output reg [7:0] ir,
+    output reg [2:0] step
+);
+    always_ff @(posedge clk) begin
+        if (done) begin step = 0; ir <= d_in; end
+        else if (is_cond && !cond_true) step <= next_cond;
+        else step <= step + 1'b1;
+    end
+endmodule
+
 module decoder(
     input opcode_t opcode,
     input wire [2:0] step,          // Current step in the opcode (starts at 0, auto-increments until `done` or if `next_cond`.)
@@ -149,11 +168,15 @@ module decoder(
 
     r16m_decoder r16m (.r16(opcode[5:4]));
 
-    always @(*) begin
+    alu_op_t f_alu_op = alu_op_t'(opcode[5:3]);
+    wire f_inc_rr = opcode[3];
+    wire f_inc_r = opcode[0];
+
+    always_comb begin
         // Defaults:
         is_stk = 0;
         done = 0; is_cond = 0; wr_pc = 0;
-        use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = alu_op_t'(opcode[5:3]); s_acc = ACC_DB; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
+        use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_DB; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
 
         casez ({opcode, step})
             {LD_RR_NN,  3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
@@ -172,7 +195,7 @@ module decoder(
             {LD_NN_SP,  3'd3}: /* [wz] <- sph */                        begin s_ab = WZ; s_db = SPH; t_db = MEM; end
             {LD_NN_SP,  3'd4}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {INCDEC_RR, 3'd0}: /* inc/dec r16 */                        begin s_ab = r16; if (opcode[3]) idu = DEC; else idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = r16; end
+            {INCDEC_RR, 3'd0}: /* inc/dec r16 */                        begin s_ab = r16; if (f_inc_rr) idu = DEC; else idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = r16; end
             {INCDEC_RR, 3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {ADD_HL_RR, 3'd0}: /* l <- add(l, r16l) */                  begin s_db = r16l; t_db = L; use_alu = 1; alu_op = ALU_ADD; end
@@ -182,7 +205,7 @@ module decoder(
             {INCDEC_HL, 3'd1}: /* [hl] <- add(z, 1) */                  begin s_ab = HL; s_db = Z; t_db = MEM; use_alu = 1; alu_op = ALU_ADD; s_arg = ARG_ONE; end
             {INCDEC_HL, 3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_arg = ARG_ONE; s_db = r8_dst; t_db = r8_dst; use_alu = 1; if (opcode[0]) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
+            {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_arg = ARG_ONE; s_db = r8_dst; t_db = r8_dst; use_alu = 1; if (f_inc_r) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
 
             {LD_HL_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end                    
             {LD_HL_N,   3'd1}: /* [hl] <- z */                          begin s_ab = HL; s_db = Z; t_db = MEM; end                                       
