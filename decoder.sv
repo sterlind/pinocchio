@@ -49,12 +49,30 @@ typedef enum logic [2:0] {
     ALU_CP
 } alu_op_t;
 
+typedef struct packed {
+    bit f_z;
+    bit f_n;
+    bit f_h;
+    bit f_c;
+} flags_t;
+
+typedef enum logic [1:0] {
+    COND_NZ, COND_Z, COND_NC, COND_C
+} cond_t;
+
 typedef enum logic [2:0] {
     WZ, BC, DE, HL, AF, SP, PC, PCH_ZERO, REG16_ANY = 3'bxxx
 } reg16_t;
 
 typedef enum logic [3:0] {
-    MEM = 4'b0000 /* i.e. NONE */, Z, W, B, C, D, E, H, L, SPH, SPL, PCH, PCL, A, F = 4'b1111, REG8_ANY = 4'bxxxx
+    MEM = 4'b0000 /* i.e. NONE */,
+    Z, W,
+    B, C, D, E, H, L,
+    SPH, SPL,
+    PCH, PCL,
+    A,
+    F = 4'b1111,
+    REG8_ANY = 4'bxxxx
 } reg8_t;
 `define MIN_REG8 Z
 `define MAX_REG8 A 
@@ -125,16 +143,25 @@ endmodule
 module sequencer(
     input wire clk,
     input wire done,
-    input wire cond_true,
+    input cond_t cond,
+    input flags_t flags,
     input wire is_cond,
     input wire [2:0] next_cond,
     input wire [7:0] d_in,
     output reg [7:0] ir,
     output reg [2:0] step
 );
+    reg matched;
+    always @(*) case(cond)
+        COND_NZ: matched = !flags.f_z;
+        COND_Z: matched = flags.f_z;
+        COND_NC: matched = !flags.f_c;
+        COND_C: matched = flags.f_c;
+    endcase
+
     always_ff @(posedge clk) begin
         if (done) begin step = 0; ir <= d_in; end
-        else if (is_cond && !cond_true) step <= next_cond;
+        else if (is_cond && !matched) step <= next_cond;
         else step <= step + 1'b1;
     end
 endmodule
@@ -145,6 +172,7 @@ module decoder(
     output logic [2:0] next_cond,   // Overrides step auto-increment and sets to this step *if* `is_cond` and cc is unsatisfied.
     output logic done,              // Latches IR, resets step, begins next opcode.
     output logic is_cond,           // If true, branch on cc rather than auto-incrementing `step`.
+    output cond_t cond,             // Which condition to branch on?
     output reg16_t s_ab,            // Which r16 to use for the address bus?
     output reg8_t s_db,             // R8 to source db from (or MEM.)
     output reg8_t t_db,             // R8 (or MEM) load from db out.
@@ -167,6 +195,8 @@ module decoder(
     r16_decoder dc_r16(.is_stk(is_stk), .r16(opcode[5:4]), .r_idx(r16), .rh_idx(r16h), .rl_idx(r16l));
 
     r16m_decoder r16m (.r16(opcode[5:4]));
+
+    assign cond = cond_t'(opcode[4:3]);
 
     alu_op_t f_alu_op = alu_op_t'(opcode[5:3]);
     wire f_inc_rr = opcode[3];

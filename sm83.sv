@@ -1,12 +1,5 @@
 `include "decoder.sv"
 
-typedef struct packed {
-    bit f_z;
-    bit f_n;
-    bit f_h;
-    bit f_c;
-} flags_t;
-
 module sm83(
     input wire clk,
     output wire [15:0] addr,
@@ -33,6 +26,8 @@ module sm83(
     sequencer seq (
         .clk(clk),
         .done(ctrl.done),
+        .cond(ctrl.cond),
+        .flags(flags),
         .is_cond(ctrl.is_cond),
         .next_cond(ctrl.next_cond),
         .d_in(d_in),
@@ -71,14 +66,15 @@ module sm83(
     reg [15:0] rr_wb;
     always_ff @(posedge clk) begin
         if (ctrl.wr_pc) {rf[PCH], rf[PCL]} <= ab;
-        case (ctrl.t_rr_wb)
-            WZ: {rf[W], rf[Z]} <= rr_wb;
-            BC: {rf[B], rf[C]} <= rr_wb;
-            DE: {rf[D], rf[E]} <= rr_wb;
-            HL: {rf[H], rf[L]} <= rr_wb;
-            SP: rf[SP] <= rr_wb;
-            AF: {rf[A], flags} <= rr_wb[15:4];
-        endcase
+        if (ctrl.s_rr_wb != RR_WB_NONE)
+            case (ctrl.t_rr_wb)
+                WZ: {rf[W], rf[Z]} <= rr_wb;
+                BC: {rf[B], rf[C]} <= rr_wb;
+                DE: {rf[D], rf[E]} <= rr_wb;
+                HL: {rf[H], rf[L]} <= rr_wb;
+                SP: rf[SP] <= rr_wb;
+                AF: {rf[A], flags} <= rr_wb[15:4];
+            endcase
         write <= ctrl.t_db == MEM;
         if (ctrl.t_db != F && ctrl.t_db != MEM) rf[ctrl.t_db] <= ctrl.use_alu ? alu.res : db;
     end
@@ -86,6 +82,7 @@ module sm83(
     always_comb begin
         case (ctrl.s_db)
             MEM: db = d_in;
+            F: db = {flags, 4'd0};
             default: db = rf[ctrl.s_db];
         endcase
 
@@ -103,6 +100,7 @@ module sm83(
         case (ctrl.s_rr_wb)
             RR_WB_IDU: rr_wb = idu.res;
             RR_WB_WZ: rr_wb = {rf[W], rf[Z]};
+            default: rr_wb = 16'hxx;
         endcase
     end
 endmodule
