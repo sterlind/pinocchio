@@ -1,0 +1,4 @@
+06 07   // ld b, 7
+af      // xor a, a
+c6 09   // add a, 9
+90      // sub a, b
