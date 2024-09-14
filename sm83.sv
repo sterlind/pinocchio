@@ -69,7 +69,7 @@ module sm83(
     reg [15:0] rr_wb;
     always_ff @(posedge clk) begin
         if (!rst) begin
-            for (int k = `MIN_REG8; k < `MAX_REG8; k = k + 1)
+            for (int k = `MIN_REG8; k < `MAX_REG8 + 1; k = k + 1)
                 rf[k] <= 0;
             flags <= 4'h0;
         end else begin
@@ -87,7 +87,7 @@ module sm83(
                 if (ctrl.use_alu) begin
                     flags <= alu.f_out;
                     rf[ctrl.t_db] <= alu.res;
-                end else flags <= db;
+                end else rf[ctrl.t_db] <= db;
         end
     end
 

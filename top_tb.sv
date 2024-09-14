@@ -29,11 +29,26 @@ module top_tb;
         forever #1 clk = ~clk;  // Should be up and running now!
     end
 
-    initial begin
-        $dumpfile("top_tb.vcd");
-        $dumpvars(0, cpu);
-        #20;
-        $finish;
+    genvar k;
+    reg [15:0] bc, de, hl, sp, pc, af;
+    always_comb begin
+        pc = {cpu.rf[PCH], cpu.rf[PCL]};
+        af = {cpu.rf[A], cpu.flags, 4'b0};
+        bc = {cpu.rf[B], cpu.rf[C]};
+        de = {cpu.rf[D], cpu.rf[E]};
+        hl = {cpu.rf[H], cpu.rf[L]};
+        sp = {cpu.rf[SPH], cpu.rf[SPL]};
     end
 
+    initial begin
+        $dumpvars(0, cpu);
+        $dumpvars(0, bc);
+        $dumpvars(0, de);
+        $dumpvars(0, hl);
+        $dumpvars(0, af);
+        $dumpvars(0, sp);
+        $dumpvars(0, pc);
+    end
+
+    initial #20 $finish;
 endmodule
