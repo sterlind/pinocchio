@@ -21,11 +21,11 @@ module top_tb;
     end
 
     initial begin
-        clk = 0;
-        $readmemh("rom.hex", mem);
-        rst = 0;
-        #2;
-        rst = 1;
+        $readmemh("rom.hex", mem, 0, 5);
+        rst = 0; clk = 0;
+        #1; clk = 1;
+        #1; clk = 0;
+        #1; clk = 1; rst = 1;
         forever #1 clk = ~clk;
     end
 

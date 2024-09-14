@@ -160,9 +160,9 @@ module sequencer(
         COND_C: matched = flags.f_c;
     endcase
 
-    always_ff @(posedge clk or negedge rst) begin
+    always_ff @(posedge clk) begin
         if (!rst) begin
-            step <= 0; ir <= 0;
+            step <= 0; ir <= d_in;
         end else begin
             if (done) begin step = 0; ir <= d_in; end
             else if (is_cond && !matched) step <= next_cond;
@@ -213,7 +213,7 @@ module decoder(
         done = 0; is_cond = 0; wr_pc = 0;
         use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_DB; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
 
-        casez ({opcode, step})
+        casex ({opcode, step})
             {NOP,       3'd0}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
             {LD_RR_NN,  3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_RR_NN,  3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
@@ -293,6 +293,7 @@ module decoder(
             {LD_NN_A,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {LD_NN_A,   3'd2}: /* [wz] <- a */                          begin s_ab = WZ; s_db = A; t_db = MEM; end
             {LD_NN_A,   3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+            default: $display("Bad opcode, step (%h, %d)", opcode, step);
         endcase
     end
 endmodule

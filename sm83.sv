@@ -3,7 +3,7 @@
 module sm83(
     input wire clk,
     input wire rst,
-    output wire [15:0] addr,
+    output reg [15:0] addr,
     input wire [7:0] d_in,
     output wire [7:0] d_out,
     output reg write
@@ -13,7 +13,8 @@ module sm83(
     reg [7:0] rf [`MIN_REG8:`MAX_REG8];
     reg flags_t flags;
 
-    assign addr = ab, d_out = db;
+    assign d_out = db;
+    always_comb addr = rst ? ab : 16'h0;
 
     wire [7:0] ir;
     wire [2:0] step;
@@ -66,13 +67,13 @@ module sm83(
 
     // Register file:
     reg [15:0] rr_wb;
-    always_ff @(posedge clk or negedge rst) begin
+    always_ff @(posedge clk) begin
         if (!rst) begin
             for (int k = `MIN_REG8; k < `MAX_REG8; k = k + 1)
                 rf[k] <= 0;
             flags <= 4'h0;
         end else begin
-            if (ctrl.wr_pc) {rf[PCH], rf[PCL]} <= ab;
+            if (ctrl.wr_pc) {rf[PCH], rf[PCL]} <= idu.res; // Todo: do we always pull from idu?
             if (ctrl.s_rr_wb != RR_WB_NONE)
                 case (ctrl.t_rr_wb)
                     WZ: {rf[W], rf[Z]} <= rr_wb;
