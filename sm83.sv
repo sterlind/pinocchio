@@ -137,41 +137,29 @@ module alu_m (
     output flags_t f_out,
     output logic [7:0] res
 );
-    reg z, n, h, c;
-    assign f_out = {z, n, h, c};
-
-    reg [7:0] adder_arg;
-    reg adder_cin;
-    always_comb case (op)
-        ALU_ADD, ALU_ADC: {adder_arg, adder_cin} = {arg, c_in};
-        // To negate with 2's complement, invert and add 1.
-        // If we're subtracting with carry, we 
-        ALU_SUB, ALU_SBC, ALU_CP: {adder_arg, adder_cin} = {~arg, c_in};
-    endcase
-    adder4 low (
-        .a(acc[3:0]),
-        .b(arg[3:0]),
-        .c_in(c_in),
-        .res(res[3:0])
-    );
-    adder4 high (
-        .a(acc[7:4]),
-        .b(arg[7:4]),
-        .c_in(low.c_out),
-        .res(res[7:4])
-    );
-
+    reg z, n, h, c, carry;
+    reg [7:0] added, sum;
+    assign {h, sum[3:0]} = acc[3:0] + arg[3:0] + carry;
+    assign {c, sum[7:4]} = acc[7:4] + arg[7:4] + h;
     assign z = res == 0;
-    assign {h, c} = {high.c_out, low.c_out};
+
+    always_comb begin
+        case (op)
+            ALU_ADC, ALU_SBC: carry = c_in;
+            ALU_SUB, ALU_CP: carry = 1'b1;
+            default: carry = 1'b0;
+        endcase
+        case (op)
+            ALU_SUB, ALU_SBC, ALU_CP: begin added = ~arg; n = 1; end
+            default: begin added = arg; n = 0; end
+        endcase
+        f_out = {z, 3'b0};
+        case (op)
+            ALU_XOR: res = acc ^ arg;
+            ALU_OR: res = acc | arg;
+            ALU_AND: res = acc & arg;
+            default: begin res = sum; f_out = {z, n, h, c}; end
+        endcase
+    end
 
 endmodule
-
-module adder4 (
-    input wire [3:0] a,
-    input wire [3:0] b,
-    input wire c_in,
-    output logic [3:0] res,
-    output reg c_out
-);
-    assign {c_out, res} = a + b + c_in;
-ndmodule
