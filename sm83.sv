@@ -49,7 +49,7 @@ module sm83(
         .op(ctrl.alu_op),
         .acc(acc),
         .arg(arg),
-        .f_in(flags)
+        .c_in(flags.f_c)
     );
     always_comb begin
         case (ctrl.s_acc)
@@ -83,7 +83,11 @@ module sm83(
                     AF: {rf[A], flags} <= rr_wb[15:4];
                 endcase
             write <= ctrl.t_db == MEM;
-            if (ctrl.t_db != F && ctrl.t_db != MEM) rf[ctrl.t_db] <= ctrl.use_alu ? alu.res : db;
+            if (ctrl.t_db != F && ctrl.t_db != MEM)
+                if (ctrl.use_alu) begin
+                    flags <= alu.f_out;
+                    rf[ctrl.t_db] <= alu.res;
+                end else flags <= db;
         end
     end
 
@@ -116,16 +120,58 @@ endmodule
 module idu_m (
     input wire [15:0] ab,
     input idu_mode_t mode,
-    output wire [15:0] res
+    output logic [15:0] res
 );
+    always_comb case (mode)
+        INC: res = ab + 1;
+        DEC: res = ab - 1; 
+        ADJ: res = ab; // Todo
+    endcase
 endmodule
 
 module alu_m (
     input alu_op_t op,
     input wire [7:0] acc,
     input wire [7:0] arg,
-    input flags_t f_in,
+    input bit c_in,
     output flags_t f_out,
-    output wire [7:0] res
+    output logic [7:0] res
 );
+    reg z, n, h, c;
+    assign f_out = {z, n, h, c};
+
+    reg [7:0] adder_arg;
+    reg adder_cin;
+    always_comb case (op)
+        ALU_ADD, ALU_ADC: {adder_arg, adder_cin} = {arg, c_in};
+        // To negate with 2's complement, invert and add 1.
+        // If we're subtracting with carry, we 
+        ALU_SUB, ALU_SBC, ALU_CP: {adder_arg, adder_cin} = {~arg, c_in};
+    endcase
+    adder4 low (
+        .a(acc[3:0]),
+        .b(arg[3:0]),
+        .c_in(c_in),
+        .res(res[3:0])
+    );
+    adder4 high (
+        .a(acc[7:4]),
+        .b(arg[7:4]),
+        .c_in(low.c_out),
+        .res(res[7:4])
+    );
+
+    assign z = res == 0;
+    assign {h, c} = {high.c_out, low.c_out};
+
 endmodule
+
+module adder4 (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    input wire c_in,
+    output logic [3:0] res,
+    output reg c_out
+);
+    assign {c_out, res} = a + b + c_in;
+ndmodule
