@@ -39,11 +39,13 @@ typedef enum logic [7:0] {
     PREFIX      = 8'b11001011,
 
     LD_A_NN     = 8'b11111010,
-    LD_NN_A     = 8'b11101010,
-
-    // Prefix:
-    SRU_R       = 8'b00xxxxxx
+    LD_NN_A     = 8'b11101010
 } opcode_t;
+
+typedef enum logic [7:0] {
+    SRU_R       = 8'b00xxxxxx,
+    BIT_B_R     = 8'b01xxxxxx
+} prefix_opcode_t;
 
 typedef enum logic [2:0] {
     ALU_ADD,
@@ -55,6 +57,13 @@ typedef enum logic [2:0] {
     ALU_OR,
     ALU_CP
 } alu_op_t;
+
+typedef enum logic [1:0] {
+    SRU_OP,
+    SRU_BIT,
+    SRU_SET,
+    SRU_RST
+} sru_mode_t;
 
 typedef enum logic [2:0] {
     SRU_RLC,
@@ -205,6 +214,8 @@ module decoder(
     output reg8_t t_db,             // R8 (or MEM) load from db out.
     output s_r_wb_t s_r_wb,         // R8 writeback source?
     output logic [2:0] alu_op,      // ALU/SRU operation to perform? 
+    output logic [1:0] sru_mode,    // SRU mode?
+    output logic [2:0] idx,         // Index argument (for bit/res/set and rst.)
     output s_acc_t s_acc,           // Where to source ALU accumulator from?
     output s_arg_t s_arg,           // Where to source AU argument from?
     output idu_mode_t idu,          // Increment or decrement?
@@ -224,6 +235,7 @@ module decoder(
     r16m_decoder r16m (.r16(opcode[5:4]));
 
     assign cond = cond_t'(opcode[4:3]);
+    assign idx = opcode[5:3];
 
     wire f_inc_rr = opcode[3];
     wire f_inc_r = opcode[0];
@@ -234,10 +246,12 @@ module decoder(
         is_stk = 0;
         done = 0; is_cond = 0; wr_pc = 0;
         s_r_wb = R_WB_DB;
+        sru_mode = SRU_OP;
         s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY; t_db = NONE;
 
         if (in_prefix) casex ({opcode, step})
             {SRU_R,     3'd0}: /* r <- sru r; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; end
+            {BIT_B_R,   3'd0}: /* f_z <- bit(b, r); inc pc; done */     begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_ALU; sru_mode = SRU_BIT; s_db = r8_src; t_db = r8_src; end
             default: $error("Bad *prefix* opcode, step (%h, %d)", opcode, step);
         endcase
         else casex ({opcode, step})
