@@ -35,11 +35,12 @@ typedef enum logic [7:0] {
     PUSH_R16S   = 8'b11xx0101,
 
     PREFIX      = 8'b11001011,
+
     LD_A_NN     = 8'b11111010,
     LD_NN_A     = 8'b11101010,
 
     // Prefix:
-    SRU_R8      = 8'b00xxxxxx
+    SRU_R       = 8'b00xxxxxx
 } opcode_t;
 
 typedef enum logic [2:0] {
@@ -102,6 +103,10 @@ typedef enum logic {
 } s_arg_t;
 
 typedef enum logic [1:0] {
+    R_WB_DB, R_WB_ALU, R_WB_SRU
+} s_r_wb_t;
+
+typedef enum logic [1:0] {
     RR_WB_NONE, RR_WB_IDU, RR_WB_WZ
 } s_rr_wb_t;
 
@@ -156,22 +161,6 @@ module r16m_decoder(
     endcase
 endmodule
 
-module alu_op_decoder(
-    input wire [2:0] bits,
-    output alu_op_t op
-);
-    always_comb case (bits)
-        3'b000: op = ALU_ADD;
-        3'b001: op = ALU_ADC;
-        3'b010: op = ALU_SUB;
-        3'b011: op = ALU_SBC;
-        3'b100: op = ALU_AND;
-        3'b101: op = ALU_XOR;
-        3'b110: op = ALU_OR;
-        3'b111: op = ALU_CP;
-    endcase
-endmodule
-
 module sequencer(
     input wire clk,
     input wire rst,
@@ -212,9 +201,8 @@ module decoder(
     output reg16_t s_ab,            // Which r16 to use for the address bus?
     output reg8_t s_db,             // R8 to source db from (or MEM.)
     output reg8_t t_db,             // R8 (or MEM) load from db out.
-    output logic use_alu,           // Load db out with ALU result? or just transfer db in?
-    output alu_op_t alu_op,         // ALU operation to perform? 
-    output sru_op_t sru_op,         // Shift/rotate operation to perform?
+    output s_r_wb_t s_r_wb,         // R8 writeback source?
+    output logic [2:0] alu_op,      // ALU/SRU operation to perform? 
     output s_acc_t s_acc,           // Where to source ALU accumulator from?
     output s_arg_t s_arg,           // Where to source AU argument from?
     output idu_mode_t idu,          // Increment or decrement?
@@ -235,23 +223,19 @@ module decoder(
 
     assign cond = cond_t'(opcode[4:3]);
 
-    //alu_op_t f_alu_op = ALU_SUB; //alu_op_t'(opcode[5:3]);
-    alu_op_t f_alu_op;
-    alu_op_decoder dc_alu_op(.bits(opcode[5:3]), .op(f_alu_op));
-
-    assign sru_op = sru_op_t'(opcode[5:3]);
-
     wire f_inc_rr = opcode[3];
     wire f_inc_r = opcode[0];
+    wire [2:0] f_alu_op = opcode[5:3];
 
     always_comb begin
         // Defaults:
         is_stk = 0;
         done = 0; is_cond = 0; wr_pc = 0;
-        use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY; t_db = NONE;
+        s_r_wb = R_WB_DB;
+        s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY; t_db = NONE;
 
         if (in_prefix) casex ({opcode, step})
-            {SRU_R8, 3'd0}: /* r <- sru r; inc pc; done */              begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+            {SRU_R,     3'd0}: /* r <- sru r; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; end
         endcase
         else casex ({opcode, step})
             {NOP,       3'd0}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
@@ -274,14 +258,14 @@ module decoder(
             {INCDEC_RR, 3'd0}: /* inc/dec r16 */                        begin s_ab = r16; if (f_inc_rr) idu = DEC; else idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = r16; end
             {INCDEC_RR, 3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {ADD_HL_RR, 3'd0}: /* l <- add(l, r16l) */                  begin s_db = r16l; t_db = L; use_alu = 1; alu_op = ALU_ADD; end
-            {ADD_HL_RR, 3'd1}: /* h <- adc(h, r16h); inc pc; done */    begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r16h; t_db = H; use_alu = 1; alu_op = ALU_ADC; end 
+            {ADD_HL_RR, 3'd0}: /* l <- add(l, r16l) */                  begin s_db = r16l; t_db = L; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; end
+            {ADD_HL_RR, 3'd1}: /* h <- adc(h, r16h); inc pc; done */    begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r16h; t_db = H; s_r_wb = R_WB_ALU; alu_op = ALU_ADC; end 
 
             {INCDEC_HL, 3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
-            {INCDEC_HL, 3'd1}: /* [hl] <- add(z, 1) */                  begin s_ab = HL; s_db = Z; t_db = MEM; use_alu = 1; alu_op = ALU_ADD; s_arg = ARG_ONE; end
+            {INCDEC_HL, 3'd1}: /* [hl] <- add(z, 1) */                  begin s_ab = HL; s_db = Z; t_db = MEM; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_arg = ARG_ONE; end
             {INCDEC_HL, 3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_acc = ACC_DB; s_arg = ARG_ONE; s_db = r8_dst; t_db = r8_dst; use_alu = 1; if (f_inc_r) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
+            {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_acc = ACC_DB; s_arg = ARG_ONE; s_db = r8_dst; t_db = r8_dst; s_r_wb = R_WB_ALU; if (f_inc_r) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
 
             {LD_HL_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end                    
             {LD_HL_N,   3'd1}: /* [hl] <- z */                          begin s_ab = HL; s_db = Z; t_db = MEM; end                                       
@@ -291,11 +275,11 @@ module decoder(
             {LD_R_N,    3'd1}: /* r8_dst <- z; inc pc; done */          begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = r8_dst; end       
 
             {JR_E,      3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
-            {JR_E,      3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; use_alu = 1; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
+            {JR_E,      3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
             {JR_E,      3'd2}: /* pc <- inc wz; done */                 begin done = 1; idu = INC; s_ab = WZ; wr_pc = 1; end
 
             {JR_CC_E,   3'd0}: /* z <- [pc]; inc pc; cc or goto 3 */    begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; is_cond = 1; next_cond = 3'd3; end
-            {JR_CC_E,   3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; use_alu = 1; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
+            {JR_CC_E,   3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
             {JR_CC_E,   3'd2}: /* pc <- inc wz; done */                 begin done = 1; idu = INC; s_ab = WZ; wr_pc = 1; end
             {JR_CC_E,   3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
@@ -308,12 +292,12 @@ module decoder(
             {LD_R_R,    3'd0}: /* r8_dst <- r8_src; inc pc; done */     begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = r8_src; t_db = r8_dst; end
 
             {ALU_A_HL,  3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
-            {ALU_A_HL,  3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; use_alu = 1; end
+            {ALU_A_HL,  3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; s_r_wb = R_WB_ALU; end
 
-            {ALU_A_R,   3'd0}: /* a <- alu(a, r); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r8_src; t_db = A; use_alu = 1; end
+            {ALU_A_R,   3'd0}: /* a <- alu(a, r); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r8_src; t_db = A; s_r_wb = R_WB_ALU; end
 
             {ALU_A_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
-            {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; use_alu = 1; end
+            {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; s_r_wb = R_WB_ALU; end
 
             {PUSH_R16S, 3'd0}: /* dec sp */                             begin idu = DEC; s_ab = SP; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
             {PUSH_R16S, 3'd1}: /* [sp] <- r16h (stk); dec sp */         begin is_stk = 1; s_ab = SP; s_db = r16h; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end

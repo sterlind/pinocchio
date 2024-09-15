@@ -52,6 +52,12 @@ module sm83(
         .arg(arg),
         .c_in(flags.f_c)
     );
+    sru_m sru(
+        .op(ctrl.alu_op),
+        .in(db),
+        .c_in(flags.f_c)
+    );
+
     always_comb begin
         case (ctrl.s_acc)
             ACC_A: acc = rf[A];
@@ -68,6 +74,9 @@ module sm83(
 
     // Register file:
     reg [15:0] rr_wb;
+    reg [7:0] r_wb;
+    reg flags_t f_out;
+
     always_ff @(posedge clk) begin
         if (!rst) begin
             for (int k = `MIN_REG8; k < `MAX_REG8 + 1; k = k + 1)
@@ -84,11 +93,10 @@ module sm83(
                     SP: rf[SP] <= rr_wb;
                     AF: {rf[A], flags} <= rr_wb[15:4];
                 endcase
-            if (ctrl.t_db != F && ctrl.t_db != MEM && ctrl.t_db != NONE)
-                if (ctrl.use_alu) begin
-                    flags <= alu.f_out;
-                    rf[ctrl.t_db] <= alu.res;
-                end else rf[ctrl.t_db] <= db;
+            if (ctrl.t_db != F && ctrl.t_db != MEM && ctrl.t_db != NONE) begin
+                flags <= f_out;
+                rf[ctrl.t_db] <= r_wb;
+            end
         end
     end
 
@@ -115,6 +123,12 @@ module sm83(
             RR_WB_WZ: rr_wb = {rf[W], rf[Z]};
             default: rr_wb = 16'hxx;
         endcase
+
+        case (ctrl.s_r_wb)
+            R_WB_ALU: begin r_wb = alu.res; f_out = alu.f_out; end
+            R_WB_SRU: begin r_wb = sru.res; f_out = sru.f_out; end
+            default: begin r_wb = db; f_out = flags; end
+        endcase
     end
 endmodule
 
@@ -128,6 +142,15 @@ module idu_m (
         DEC: res = ab - 1; 
         ADJ: res = ab; // Todo
     endcase
+endmodule
+
+module sru_m (
+    input alu_op_t op,
+    input wire [7:0] in,
+    input bit c_in,
+    output logic [7:0] res,
+    output flags_t f_out
+);
 endmodule
 
 module alu_m (
