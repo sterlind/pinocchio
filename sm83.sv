@@ -14,7 +14,6 @@ module sm83(
     reg flags_t flags;
 
     assign d_out = db, addr = !rst ? 16'b0 : ab;
-    assign write = !rst ? 0 : (ctrl.t_db == MEM);
 
     wire [7:0] ir;
     wire [2:0] step;
@@ -23,6 +22,8 @@ module sm83(
         .opcode(ir),
         .step(step)
     );
+
+    assign write = !rst ? 0 : (ctrl.t_db == MEM);
 
     // Sequencer:
     sequencer seq (
@@ -145,12 +146,19 @@ module idu_m (
 endmodule
 
 module sru_m (
-    input alu_op_t op,
+    input sru_op_t op,
     input wire [7:0] in,
     input bit c_in,
     output logic [7:0] res,
     output flags_t f_out
 );
+    reg c_out;
+    assign f_out = {3'b0, c_out};
+    always_comb case (op)
+        SRU_RL: {c_out, res} = {in, c_in};
+        SRU_RR: {c_out, res} = {c_in, in};
+        default: {c_out, res} = 9'bx; // Todo
+    endcase
 endmodule
 
 module alu_m (

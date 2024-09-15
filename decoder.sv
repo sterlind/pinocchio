@@ -3,8 +3,8 @@ typedef enum logic [7:0] {
     NOP         = 8'b00000000,
 
     LD_RR_NN    = 8'b00xx0001,
-    LD_A_R16M   = 8'b00xx0010,
-    LD_R16M_A   = 8'b00xx1010,
+    LD_R16M_A   = 8'b00xx0010,
+    LD_A_R16M   = 8'b00xx1010,
     LD_NN_SP    = 8'b00001000,
 
     INCDEC_RR   = 8'b00xxx011,
@@ -15,6 +15,8 @@ typedef enum logic [7:0] {
 
     LD_HL_N     = 8'b00110110,
     LD_R_N      = 8'b00xxx110,
+
+    RLA         = 8'b00010111,
 
     JR_E        = 8'b00111000,
     JR_CC_E     = 8'b001xx000,
@@ -236,9 +238,11 @@ module decoder(
 
         if (in_prefix) casex ({opcode, step})
             {SRU_R,     3'd0}: /* r <- sru r; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; end
+            default: $error("Bad *prefix* opcode, step (%h, %d)", opcode, step);
         endcase
         else casex ({opcode, step})
             {NOP,       3'd0}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
             {LD_RR_NN,  3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_RR_NN,  3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {LD_RR_NN,  3'd2}: /* r16 <- wz; inc pc; done */            begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_rr_wb = RR_WB_WZ; t_rr_wb = r16; end
@@ -246,7 +250,7 @@ module decoder(
             {LD_A_R16M, 3'd0}: /* z <- [r16m]; maybe inc/dec hl */      begin idu = r16m.idu; s_rr_wb = r16m.s_rr_wb; t_rr_wb = HL; s_ab = r16m.s_ab; s_db = MEM; t_db = Z; end
             {LD_A_R16M, 3'd1}: /* a <- z; inc pc; done */               begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = A; end
 
-            {LD_R16M_A, 3'd0}: /* [r16m] <- a; maybe inc/dec hl */      begin idu = r16m.idu; s_rr_wb = r16m.s_rr_wb; t_rr_wb = HL; s_ab = r16m.s_ab; s_db = A; end
+            {LD_R16M_A, 3'd0}: /* [r16m] <- a; maybe inc/dec hl */      begin idu = r16m.idu; s_rr_wb = r16m.s_rr_wb; t_rr_wb = HL; s_ab = r16m.s_ab; s_db = A; t_db = MEM; end
             {LD_R16M_A, 3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {LD_NN_SP,  3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
@@ -274,6 +278,8 @@ module decoder(
             {LD_R_N,    3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_R_N,    3'd1}: /* r8_dst <- z; inc pc; done */          begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = r8_dst; end       
 
+            {RLA,       3'd0}: /* a <- sru(rl, a); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = A; t_db = A; alu_op = SRU_RL; end
+
             {JR_E,      3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {JR_E,      3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
             {JR_E,      3'd2}: /* pc <- inc wz; done */                 begin done = 1; idu = INC; s_ab = WZ; wr_pc = 1; end
@@ -298,6 +304,8 @@ module decoder(
 
             {ALU_A_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; s_r_wb = R_WB_ALU; end
+
+            {PREFIX,    3'd0}: /* inc pc */                             begin idu = INC; s_ab = PC; wr_pc = 1; end
 
             {PUSH_R16S, 3'd0}: /* dec sp */                             begin idu = DEC; s_ab = SP; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
             {PUSH_R16S, 3'd1}: /* [sp] <- r16h (stk); dec sp */         begin is_stk = 1; s_ab = SP; s_db = r16h; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
