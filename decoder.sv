@@ -34,8 +34,12 @@ typedef enum logic [7:0] {
     POP_R16S    = 8'b11xx0001,
     PUSH_R16S   = 8'b11xx0101,
 
+    PREFIX      = 8'b11001011,
     LD_A_NN     = 8'b11111010,
-    LD_NN_A     = 8'b11101010
+    LD_NN_A     = 8'b11101010,
+
+    // Prefix:
+    SRU_R8      = 8'b00xxxxxx
 } opcode_t;
 
 typedef enum logic [2:0] {
@@ -48,6 +52,17 @@ typedef enum logic [2:0] {
     ALU_OR,
     ALU_CP
 } alu_op_t;
+
+typedef enum logic [2:0] {
+    SRU_RLC,
+    SRU_RRC,
+    SRU_RL,
+    SRU_RR,
+    SRU_SLA,
+    SRU_SRA,
+    SRU_SWAP,
+    SRU_SRL
+} sru_op_t;
 
 typedef struct packed {
     bit f_z;
@@ -167,6 +182,7 @@ module sequencer(
     input wire [2:0] next_cond,
     input wire [7:0] d_in,
     output reg [7:0] ir,
+    output reg in_prefix,
     output reg [2:0] step
 );
     reg matched;
@@ -178,18 +194,16 @@ module sequencer(
     endcase
 
     always_ff @(posedge clk) begin
-        if (!rst) begin
-            step <= 0; ir <= d_in;
-        end else begin
-            if (done) begin step = 0; ir <= d_in; end
-            else if (is_cond && !matched) step <= next_cond;
-            else step <= step + 1'b1;
-        end
+        if (!rst || done) begin step <= 0; ir <= d_in; in_prefix <= 0; end
+        else if (ir == PREFIX) begin ir <= d_in; in_prefix <= 1; end
+        else if (is_cond && !matched) step <= next_cond;
+        else step <= step + 1'b1;
     end
 endmodule
 
 module decoder(
     input opcode_t opcode,
+    input wire in_prefix,
     input wire [2:0] step,          // Current step in the opcode (starts at 0, auto-increments until `done` or if `next_cond`.)
     output logic [2:0] next_cond,   // Overrides step auto-increment and sets to this step *if* `is_cond` and cc is unsatisfied.
     output logic done,              // Latches IR, resets step, begins next opcode.
@@ -200,6 +214,7 @@ module decoder(
     output reg8_t t_db,             // R8 (or MEM) load from db out.
     output logic use_alu,           // Load db out with ALU result? or just transfer db in?
     output alu_op_t alu_op,         // ALU operation to perform? 
+    output sru_op_t sru_op,         // Shift/rotate operation to perform?
     output s_acc_t s_acc,           // Where to source ALU accumulator from?
     output s_arg_t s_arg,           // Where to source AU argument from?
     output idu_mode_t idu,          // Increment or decrement?
@@ -224,6 +239,8 @@ module decoder(
     alu_op_t f_alu_op;
     alu_op_decoder dc_alu_op(.bits(opcode[5:3]), .op(f_alu_op));
 
+    assign sru_op = sru_op_t'(opcode[5:3]);
+
     wire f_inc_rr = opcode[3];
     wire f_inc_r = opcode[0];
 
@@ -233,7 +250,10 @@ module decoder(
         done = 0; is_cond = 0; wr_pc = 0;
         use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY; t_db = NONE;
 
-        casex ({opcode, step})
+        if (in_prefix) casex ({opcode, step})
+            {SRU_R8, 3'd0}: /* r <- sru r; inc pc; done */              begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+        endcase
+        else casex ({opcode, step})
             {NOP,       3'd0}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
             {LD_RR_NN,  3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_RR_NN,  3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
