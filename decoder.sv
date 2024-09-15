@@ -33,6 +33,11 @@ typedef enum logic [7:0] {
     // Block 3:
     ALU_A_N     = 8'b11xxx110,
 
+    RET_CC      = 8'b110xx000,
+    RET         = 8'b110xx001,
+    CALL_CC_NN  = 8'b110xx100,
+    CALL_NN     = 8'b11001101,
+
     POP_R16S    = 8'b11xx0001,
     PUSH_R16S   = 8'b11xx0101,
 
@@ -96,7 +101,8 @@ typedef enum logic [2:0] {
 typedef enum logic [1:0] {
     AB_NO_MASK,
     AB_MASK_OR_FF00,
-    AB_MASK_AND_FF00
+    AB_MASK_AND_FF00,
+    AB_ZERO
 } ab_mask_t;
 
 typedef enum logic [3:0] {
@@ -328,6 +334,18 @@ module decoder(
 
             {ALU_A_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; s_r_wb = R_WB_ALU; end
+
+            {CALL_NN,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {CALL_NN,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
+            {CALL_NN,   3'd2}: /* dec sp */                             begin idu = DEC; s_ab = SP; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {CALL_NN,   3'd3}: /* [sp] <- pch; dec sp */                begin s_ab = SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {CALL_NN,   3'd4}: /* [sp] <- pcl; pc <- wz */              begin s_ab = SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
+            {CALL_NN,   3'd5}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {RET,       3'd0}: /* z <- [sp]; inc sp */                  begin s_ab = SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {RET,       3'd1}: /* w <- [sp]; inc sp */                  begin s_ab = SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {RET,       3'd2}: /* pc <- wz */                           begin ab_mask = AB_ZERO; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
+            {RET,       3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {PREFIX,    3'd0}: /* inc pc */                             begin idu = INC; s_ab = PC; wr_pc = 1; end
 

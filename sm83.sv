@@ -27,6 +27,7 @@ module sm83(
         if (!rst) begin write = 0; addr = 16'b0; end
         else begin
             case (ctrl.ab_mask)
+                AB_ZERO: addr = 16'b0;
                 AB_NO_MASK: addr = ab;
                 AB_MASK_OR_FF00: addr = ab | 16'hff00;
                 AB_MASK_AND_FF00: addr = ab & 16'hff00;

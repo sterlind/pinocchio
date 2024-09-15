@@ -20,9 +20,14 @@ module top_tb;
         d_in <= mem[addr];
     end
 
+    int fd, code;
     initial begin
         //$readmemh("rom.hex", mem, 0, 5);
         // For now:
+        fd = $fopen("tetris.gb", "rb");
+        code = $fread(mem, fd, 0, 'h7fff);
+        $fclose(fd);
+        // Boot rom overlaps cartridge rom.
         $readmemh("dmg_rom.hex", mem, 0, 255);
         clk = 1; rst = 0;       // cpu's comb logic sets addr = 0 and write = 0.
         #1; clk = 0;            // Falling edge loads d_in from addr 0.
