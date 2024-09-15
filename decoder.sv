@@ -18,7 +18,7 @@ typedef enum logic [7:0] {
 
     RLA         = 8'b00010111,
 
-    JR_E        = 8'b00111000,
+    JR_E        = 8'b00011000,
     JR_CC_E     = 8'b001xx000,
     
     // Block 1:
@@ -44,6 +44,7 @@ typedef enum logic [7:0] {
     PREFIX      = 8'b11001011,
 
     LDH_N_A     = 8'b11100000,
+    LDH_A_N     = 8'b11110000,
     LDH_C_A     = 8'b11100010,
     LD_A_NN     = 8'b11111010,
     LD_NN_A     = 8'b11101010
@@ -351,6 +352,10 @@ module decoder(
 
             {LDH_C_A,   3'd0}: /* [ff00 + c] <- a */                    begin s_ab = BC; ab_mask = AB_MASK_OR_FF00; s_db = A; t_db = MEM; end
             {LDH_C_A,   3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {LDH_A_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {LDH_A_N,   3'd1}: /* a <- [ff00 + z] */                    begin s_ab = WZ; ab_mask = AB_MASK_OR_FF00; s_db = MEM; t_db = Z; end
+            {LDH_A_N,   3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {LDH_N_A,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LDH_N_A,   3'd1}: /* [ff00 + z] <- a */                    begin s_ab = WZ; ab_mask = AB_MASK_OR_FF00; s_db = A; t_db = MEM; end
