@@ -54,6 +54,7 @@ module sm83(
     );
     always_comb begin
         case (ctrl.s_acc)
+            ACC_A: acc = rf[A];
             ACC_DB: acc = db;
             ACC_SPL: acc = rf[SPL];
             ACC_SPH: acc = rf[SPH];
@@ -139,8 +140,8 @@ module alu_m (
 );
     reg z, n, h, c, carry;
     reg [7:0] added, sum;
-    assign {h, sum[3:0]} = acc[3:0] + arg[3:0] + carry;
-    assign {c, sum[7:4]} = acc[7:4] + arg[7:4] + h;
+    assign {h, sum[3:0]} = acc[3:0] + added[3:0] + carry;
+    assign {c, sum[7:4]} = acc[7:4] + added[7:4] + h;
     assign z = res == 0;
 
     always_comb begin

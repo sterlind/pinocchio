@@ -77,8 +77,8 @@ typedef enum logic [3:0] {
 `define MIN_REG8 Z
 `define MAX_REG8 A 
 
-typedef enum logic [1:0] {
-    ACC_DB, ACC_SPL, ACC_SPH, ACC_PCL
+typedef enum logic [2:0] {
+    ACC_A, ACC_DB, ACC_SPL, ACC_SPH, ACC_PCL
 } s_acc_t;
 
 typedef enum logic {
@@ -230,7 +230,7 @@ module decoder(
         // Defaults:
         is_stk = 0;
         done = 0; is_cond = 0; wr_pc = 0;
-        use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_DB; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
+        use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
 
         casex ({opcode, step})
             {NOP,       3'd0}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
@@ -260,7 +260,7 @@ module decoder(
             {INCDEC_HL, 3'd1}: /* [hl] <- add(z, 1) */                  begin s_ab = HL; s_db = Z; t_db = MEM; use_alu = 1; alu_op = ALU_ADD; s_arg = ARG_ONE; end
             {INCDEC_HL, 3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_arg = ARG_ONE; s_db = r8_dst; t_db = r8_dst; use_alu = 1; if (f_inc_r) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
+            {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_acc = ACC_DB; s_arg = ARG_ONE; s_db = r8_dst; t_db = r8_dst; use_alu = 1; if (f_inc_r) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
 
             {LD_HL_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end                    
             {LD_HL_N,   3'd1}: /* [hl] <- z */                          begin s_ab = HL; s_db = Z; t_db = MEM; end                                       

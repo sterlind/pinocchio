@@ -30,7 +30,7 @@ module top_tb;
     end
 
     genvar k;
-    reg [15:0] bc, de, hl, sp, pc, af;
+    reg [15:0] bc, de, hl, sp, pc, af, wz;
     always_comb begin
         pc = {cpu.rf[PCH], cpu.rf[PCL]};
         af = {cpu.rf[A], cpu.flags, 4'b0};
@@ -38,6 +38,7 @@ module top_tb;
         de = {cpu.rf[D], cpu.rf[E]};
         hl = {cpu.rf[H], cpu.rf[L]};
         sp = {cpu.rf[SPH], cpu.rf[SPL]};
+        wz = {cpu.rf[W], cpu.rf[Z]};
     end
 
     initial begin
@@ -48,6 +49,7 @@ module top_tb;
         $dumpvars(0, af);
         $dumpvars(0, sp);
         $dumpvars(0, pc);
+        $dumpvars(0, wz);
     end
 
     initial #20 $finish;
