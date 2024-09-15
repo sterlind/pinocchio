@@ -313,7 +313,7 @@ module decoder(
             {LD_NN_A,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {LD_NN_A,   3'd2}: /* [wz] <- a */                          begin s_ab = WZ; s_db = A; t_db = MEM; end
             {LD_NN_A,   3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
-            //default: $display("Bad opcode, step (%h, %d)", opcode, step);
+            default: $error("Bad opcode, step (%h, %d)", opcode, step);
         endcase
     end
 endmodule

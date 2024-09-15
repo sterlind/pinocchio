@@ -21,7 +21,9 @@ module top_tb;
     end
 
     initial begin
-        $readmemh("rom.hex", mem, 0, 5);
+        //$readmemh("rom.hex", mem, 0, 5);
+        // For now:
+        $readmemh("dmg_rom.hex", mem, 0, 255);
         clk = 1; rst = 0;       // cpu's comb logic sets addr = 0 and write = 0.
         #1; clk = 0;            // Falling edge loads d_in from addr 0.
         clk = 1; #1;            // Raise clock. cpu latches ir from d_in and zeros regs, since ~rst.
@@ -52,5 +54,5 @@ module top_tb;
         $dumpvars(0, wz);
     end
 
-    initial #20 $finish;
+    initial #32 $finish;
 endmodule
