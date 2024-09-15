@@ -140,6 +140,22 @@ module r16m_decoder(
     endcase
 endmodule
 
+module alu_op_decoder(
+    input wire [2:0] bits,
+    output alu_op_t op
+);
+    always_comb case (bits)
+        3'b000: op = ALU_ADD;
+        3'b001: op = ALU_ADC;
+        3'b010: op = ALU_SUB;
+        3'b011: op = ALU_SBC;
+        3'b100: op = ALU_AND;
+        3'b101: op = ALU_XOR;
+        3'b110: op = ALU_OR;
+        3'b111: op = ALU_CP;
+    endcase
+endmodule
+
 module sequencer(
     input wire clk,
     input wire rst,
@@ -184,7 +200,7 @@ module decoder(
     output logic use_alu,           // Load db out with ALU result? or just transfer db in?
     output alu_op_t alu_op,         // ALU operation to perform? 
     output s_acc_t s_acc,           // Where to source ALU accumulator from?
-    output s_arg_t s_arg,           // Where to source ALU argument from?
+    output s_arg_t s_arg,           // Where to source AU argument from?
     output idu_mode_t idu,          // Increment or decrement?
     output s_rr_wb_t s_rr_wb,       // R16 writeback source?
     output reg16_t t_rr_wb,         // R16 writeback target?
@@ -203,7 +219,10 @@ module decoder(
 
     assign cond = cond_t'(opcode[4:3]);
 
-    alu_op_t f_alu_op = alu_op_t'(opcode[5:3]);
+    //alu_op_t f_alu_op = ALU_SUB; //alu_op_t'(opcode[5:3]);
+    alu_op_t f_alu_op;
+    alu_op_decoder dc_alu_op(.bits(opcode[5:3]), .op(f_alu_op));
+
     wire f_inc_rr = opcode[3];
     wire f_inc_r = opcode[0];
 
@@ -293,7 +312,7 @@ module decoder(
             {LD_NN_A,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {LD_NN_A,   3'd2}: /* [wz] <- a */                          begin s_ab = WZ; s_db = A; t_db = MEM; end
             {LD_NN_A,   3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
-            default: $display("Bad opcode, step (%h, %d)", opcode, step);
+            //default: $display("Bad opcode, step (%h, %d)", opcode, step);
         endcase
     end
 endmodule
