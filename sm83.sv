@@ -84,7 +84,7 @@ module sm83(
                     SP: rf[SP] <= rr_wb;
                     AF: {rf[A], flags} <= rr_wb[15:4];
                 endcase
-            if (ctrl.t_db != F && ctrl.t_db != MEM)
+            if (ctrl.t_db != F && ctrl.t_db != MEM && ctrl.t_db != NONE)
                 if (ctrl.use_alu) begin
                     flags <= alu.f_out;
                     rf[ctrl.t_db] <= alu.res;

@@ -65,13 +65,14 @@ typedef enum logic [2:0] {
 } reg16_t;
 
 typedef enum logic [3:0] {
-    MEM = 4'b0000 /* i.e. NONE */,
+    NONE = 4'b0000 /* i.e. NONE */,
     Z, W,
     B, C, D, E, H, L,
     SPH, SPL,
     PCH, PCL,
     A,
-    F = 4'b1111,
+    F = 4'b1110,
+    MEM = 4'b1111,
     REG8_ANY = 4'bxxxx
 } reg8_t;
 `define MIN_REG8 Z
@@ -230,7 +231,7 @@ module decoder(
         // Defaults:
         is_stk = 0;
         done = 0; is_cond = 0; wr_pc = 0;
-        use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY;
+        use_alu = 0; s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY; t_db = NONE;
 
         casex ({opcode, step})
             {NOP,       3'd0}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
