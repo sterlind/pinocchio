@@ -13,7 +13,7 @@ module sm83(
     reg [7:0] rf [`MIN_REG8:`MAX_REG8];
     reg flags_t flags;
 
-    assign d_out = db, addr = !rst ? 16'b0 : ab;
+    assign d_out = db;
 
     wire [7:0] ir;
     wire [2:0] step;
@@ -23,7 +23,16 @@ module sm83(
         .step(step)
     );
 
-    assign write = !rst ? 0 : (ctrl.t_db == MEM);
+    always_comb
+        if (!rst) begin write = 0; addr = 16'b0; end
+        else begin
+            case (ctrl.ab_mask)
+                AB_NO_MASK: addr = ab;
+                AB_MASK_OR_FF00: addr = ab | 16'hff00;
+                AB_MASK_AND_FF00: addr = ab & 16'hff00;
+            endcase
+            write = ctrl.t_db == MEM;
+        end
 
     // Sequencer:
     sequencer seq (
@@ -41,7 +50,7 @@ module sm83(
 
     // IDU:
     idu_m idu (
-        .ab(ab),
+        .ab(addr),
         .mode(ctrl.idu)
     );
 
@@ -93,7 +102,7 @@ module sm83(
                     BC: {rf[B], rf[C]} <= rr_wb;
                     DE: {rf[D], rf[E]} <= rr_wb;
                     HL: {rf[H], rf[L]} <= rr_wb;
-                    SP: rf[SP] <= rr_wb;
+                    SP: {rf[SPH], rf[SPL]} <= rr_wb;
                     AF: {rf[A], flags} <= rr_wb[15:4];
                 endcase
             if (ctrl.t_db != F && ctrl.t_db != MEM && ctrl.t_db != NONE) begin
@@ -112,7 +121,6 @@ module sm83(
 
         case (ctrl.s_ab)
             AF: ab = {rf[A], flags, 4'b0};
-            PCH_ZERO: ab = {rf[PCH], 8'b0};
             WZ: ab = {rf[W], rf[Z]};
             BC: ab = {rf[B], rf[C]};
             DE: ab = {rf[D], rf[E]};

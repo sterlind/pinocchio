@@ -54,5 +54,5 @@ module top_tb;
         $dumpvars(0, wz);
     end
 
-    initial #50 $finish;
+    initial #128 $finish;
 endmodule

@@ -38,6 +38,8 @@ typedef enum logic [7:0] {
 
     PREFIX      = 8'b11001011,
 
+    LDH_N_A     = 8'b11100000,
+    LDH_C_A     = 8'b11100010,
     LD_A_NN     = 8'b11111010,
     LD_NN_A     = 8'b11101010
 } opcode_t;
@@ -88,8 +90,14 @@ typedef enum logic [1:0] {
 } cond_t;
 
 typedef enum logic [2:0] {
-    WZ, BC, DE, HL, AF, SP, PC, PCH_ZERO, REG16_ANY = 3'bxxx
+    WZ, BC, DE, HL, AF, SP, PC, REG16_ANY = 3'bxxx
 } reg16_t;
+
+typedef enum logic [1:0] {
+    AB_NO_MASK,
+    AB_MASK_OR_FF00,
+    AB_MASK_AND_FF00
+} ab_mask_t;
 
 typedef enum logic [3:0] {
     NONE = 4'b0000 /* i.e. NONE */,
@@ -210,6 +218,7 @@ module decoder(
     output logic is_cond,           // If true, branch on cc rather than auto-incrementing `step`.
     output cond_t cond,             // Which condition to branch on?
     output reg16_t s_ab,            // Which r16 to use for the address bus?
+    output ab_mask_t ab_mask,       // How to mask the address bus?
     output reg8_t s_db,             // R8 to source db from (or MEM.)
     output reg8_t t_db,             // R8 (or MEM) load from db out.
     output s_r_wb_t s_r_wb,         // R8 writeback source?
@@ -247,6 +256,7 @@ module decoder(
         done = 0; is_cond = 0; wr_pc = 0;
         s_r_wb = R_WB_DB;
         sru_mode = SRU_OP;
+        ab_mask = AB_NO_MASK;
         s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY; t_db = NONE;
 
         if (in_prefix) casex ({opcode, step})
@@ -295,11 +305,11 @@ module decoder(
             {RLA,       3'd0}: /* a <- sru(rl, a); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = A; t_db = A; alu_op = SRU_RL; end
 
             {JR_E,      3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
-            {JR_E,      3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
+            {JR_E,      3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PC; ab_mask = AB_MASK_AND_FF00; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
             {JR_E,      3'd2}: /* pc <- inc wz; done */                 begin done = 1; idu = INC; s_ab = WZ; wr_pc = 1; end
 
             {JR_CC_E,   3'd0}: /* z <- [pc]; inc pc; cc or goto 3 */    begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; is_cond = 1; next_cond = 3'd3; end
-            {JR_CC_E,   3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PCH_ZERO; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
+            {JR_CC_E,   3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PC; ab_mask = AB_MASK_AND_FF00; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
             {JR_CC_E,   3'd2}: /* pc <- inc wz; done */                 begin done = 1; idu = INC; s_ab = WZ; wr_pc = 1; end
             {JR_CC_E,   3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
@@ -320,6 +330,13 @@ module decoder(
             {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; s_r_wb = R_WB_ALU; end
 
             {PREFIX,    3'd0}: /* inc pc */                             begin idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {LDH_C_A,   3'd0}: /* [ff00 + c] <- a */                    begin s_ab = BC; ab_mask = AB_MASK_OR_FF00; s_db = A; t_db = MEM; end
+            {LDH_C_A,   3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {LDH_N_A,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {LDH_N_A,   3'd1}: /* [ff00 + z] <- a */                    begin s_ab = WZ; ab_mask = AB_MASK_OR_FF00; s_db = A; t_db = MEM; end
+            {LDH_N_A,   3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {PUSH_R16S, 3'd0}: /* dec sp */                             begin idu = DEC; s_ab = SP; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
             {PUSH_R16S, 3'd1}: /* [sp] <- r16h (stk); dec sp */         begin is_stk = 1; s_ab = SP; s_db = r16h; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
