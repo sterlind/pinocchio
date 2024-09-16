@@ -50,10 +50,28 @@ module sm83(
     );
 
     // IDU:
+    reg idu_inc, idu_bypass;
+    reg [1:0] adj_bits;
+    assign adj_bits = {alu.f_out.f_z, alu.f_out.f_c};
     idu_m idu (
         .ab(addr),
-        .mode(ctrl.idu)
+        .inc(idu_inc),
+        .bypass(idu_bypass)
     );
+    always_comb begin
+        idu_bypass = 0; idu_inc = 1;
+        case (ctrl.idu)
+            INC: idu_inc = 1;
+            DEC: idu_inc = 0;
+            ADJ: begin
+                case (adj_bits)
+                    2'b01: idu_inc = 1;
+                    2'b10: idu_inc = 0;
+                    default: idu_bypass = 1;
+                endcase
+            end
+        endcase
+    end
 
     // ALU:
     reg [7:0] arg, acc;
@@ -147,14 +165,13 @@ endmodule
 
 module idu_m (
     input wire [15:0] ab,
-    input idu_mode_t mode,
+    input wire inc,
+    input wire bypass,
     output logic [15:0] res
 );
-    always_comb case (mode)
-        INC: res = ab + 1;
-        DEC: res = ab - 1; 
-        ADJ: res = ab; // Todo
-    endcase
+    always_comb
+        if (bypass) res = ab;
+        else if (inc) res = ab + 1; else res = ab - 1;
 endmodule
 
 module sru_m (
