@@ -46,7 +46,7 @@ module top_tb;
         $dumpvars(0, wz);
     end
 
-    initial #200000 $finish;
+    initial #114704 $finish;
 endmodule
 
 module rom(
