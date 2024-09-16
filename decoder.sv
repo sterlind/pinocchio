@@ -355,7 +355,7 @@ module decoder(
             {LDH_C_A,   3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {LDH_A_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
-            {LDH_A_N,   3'd1}: /* a <- [ff00 + z] */                    begin s_ab = WZ; ab_mask = AB_MASK_OR_FF00; s_db = MEM; t_db = Z; end
+            {LDH_A_N,   3'd1}: /* a <- [ff00 + z] */                    begin s_ab = WZ; ab_mask = AB_MASK_OR_FF00; s_db = MEM; t_db = A; end
             {LDH_A_N,   3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {LDH_N_A,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
