@@ -1,9 +1,11 @@
 `include "sm83.sv"
+`include "ppu.sv"
 
 typedef enum logic [15:0] {
     ROM     = 16'b0xxx_xxxx_xxxx_xxxx,
     VRAM    = 16'b100x_xxxx_xxxx_xxxx,
-    WRAM    = 16'b110x_xxxx_xxxx_xxxx
+    WRAM    = 16'b110x_xxxx_xxxx_xxxx,
+    PPU_REG = 16'hff4x
 } mem_mask;
 
 module top(
@@ -31,6 +33,20 @@ module top(
         .d_in(bus_out)
     );
 
+    reg ppu_reg_write;
+    ppu_ctrl ppu_reg (
+        .clk(clk),
+        .reg_addr(cpu.addr[3:0]),
+        .reg_in(cpu.d_out),
+        .reg_write(ppu_reg_write),
+        .ly(ppu.ly)
+    );
+
+    ppu_engine ppu (
+        .clk(clk),
+        .lcdc(ppu_reg.lcdc)
+    );
+
     always_comb begin
         bus_out = 'x;
         rom_addr = 'x;
@@ -38,6 +54,7 @@ module top(
             ROM: begin rom_addr = cpu.addr; bus_out = rom_data; end
             VRAM: begin vram_addr = cpu.addr; vram_write = cpu.write; vram_in = cpu.d_out; bus_out = vram.d_out; end
             WRAM: begin wram_addr = cpu.addr; wram_write = cpu.write; wram_in = cpu.d_out; bus_out = wram.d_out; end
+            PPU_REG: begin bus_out = ppu_reg.reg_out; ppu_reg_write = cpu.write; end
         endcase
     end
 endmodule
