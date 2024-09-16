@@ -46,10 +46,18 @@ module ppu_ctrl(
 );
 endmodule
 
-module ppu(
+module ppu_vdp(
     input wire clk,
+    // -> Ctrl:
+    input wire [3:0] reg_addr,
+    input wire [7:0] reg_d_in,
+    input wire reg_write,
+    output wire [7:0] reg_d_out,
+    // <- VRAM:
     output wire [15:0] addr,
-    input wire [7:0] d_in,
+    input wire [7:0] data,
+    output wire read,
+    // <- Display:
     output wire draw,
     output wire [7:0] draw_x, draw_y,
     output wire [1:0] draw_c
