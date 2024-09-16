@@ -209,7 +209,8 @@ module sequencer(
     endcase
 
     always_ff @(posedge clk) begin
-        if (!rst || done) begin step <= 0; ir <= d_in; in_prefix <= 0; end
+        if (~rst) begin step <= 0; ir = 8'b0; in_prefix <= 0; end
+        else if (done) begin step <= 0; ir <= d_in; in_prefix <= 0; end
         else if (ir == PREFIX) begin ir <= d_in; in_prefix <= 1; end
         else if (is_cond && !matched) step <= next_cond;
         else step <= step + 1'b1;

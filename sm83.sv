@@ -94,6 +94,7 @@ module sm83(
         if (!rst) begin
             for (int k = `MIN_REG8; k < `MAX_REG8 + 1; k = k + 1)
                 rf[k] <= 0;
+            {rf[SPH], rf[SPL]} <= 'hffff;
             flags <= 4'h0;
         end else begin
             if (ctrl.wr_pc) {rf[PCH], rf[PCL]} <= idu.res; // Todo: do we always pull from idu?

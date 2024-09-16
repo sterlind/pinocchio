@@ -62,6 +62,7 @@ module clkdiv4(
     output wire div_clk
 );
     reg [1:0] ctr;
+    initial ctr = 0;
     always_ff @(posedge clk) ctr <= ctr + 1'b1;
-    assign div_clk = ~|ctr;
+    assign div_clk = ctr[1];
 endmodule

@@ -1,55 +1,42 @@
-`include "sm83.sv"
+`include "top.sv"
 
 module top_tb;
     reg clk, rst, write;
-    wire [15:0] addr;
-    reg [7:0] mem [0:'hffff];
-    reg [7:0] d_in, d_out;
 
-    sm83 cpu (
-        .clk(clk),
+
+    wire [14:0] rom_addr;
+    rom tetris(.clk(clk), .addr(rom_addr));
+
+    top t(
         .rst(rst),
-        .addr(addr),
-        .d_in(d_in),
-        .d_out(d_out),
-        .write(write)
+        .clk(clk),
+        .rom_addr(rom_addr),
+        .rom_data(tetris.data)
     );
 
-    always_ff @(negedge clk) begin
-        if (write) mem[addr] <= d_out;
-        d_in <= mem[addr];
-    end
-
-    int fd, code;
     initial begin
-        //$readmemh("rom.hex", mem, 0, 5);
-        // For now:
-        fd = $fopen("tetris.gb", "rb");
-        code = $fread(mem, fd, 0, 'h7fff);
-        $fclose(fd);
-        // Boot rom overlaps cartridge rom.
-        $readmemh("dmg_rom.hex", mem, 0, 255);
-        clk = 1; rst = 0;       // cpu's comb logic sets addr = 0 and write = 0.
-        #1; clk = 0;            // Falling edge loads d_in from addr 0.
-        clk = 1; #1;            // Raise clock. cpu latches ir from d_in and zeros regs, since ~rst.
-        rst = 1; clk = 0; #1;   // Reset is no longer asserted. cpu executes first op (comb), and its memory req is serviced by falling edge.
-        forever #1 clk = ~clk;  // Should be up and running now!
+        clk = 0; rst = 0;
+        forever #1 clk = ~clk;
+    end
+    initial begin
+        #4 rst = 1;
     end
 
     genvar k;
     reg [15:0] bc, de, hl, sp, pc, af, wz;
     always_comb begin
-        pc = {cpu.rf[PCH], cpu.rf[PCL]};
-        af = {cpu.rf[A], cpu.flags, 4'b0};
-        bc = {cpu.rf[B], cpu.rf[C]};
-        de = {cpu.rf[D], cpu.rf[E]};
-        hl = {cpu.rf[H], cpu.rf[L]};
-        sp = {cpu.rf[SPH], cpu.rf[SPL]};
-        wz = {cpu.rf[W], cpu.rf[Z]};
+        pc = {t.cpu.rf[PCH], t.cpu.rf[PCL]};
+        af = {t.cpu.rf[A], t.cpu.flags, 4'b0};
+        bc = {t.cpu.rf[B], t.cpu.rf[C]};
+        de = {t.cpu.rf[D], t.cpu.rf[E]};
+        hl = {t.cpu.rf[H], t.cpu.rf[L]};
+        sp = {t.cpu.rf[SPH], t.cpu.rf[SPL]};
+        wz = {t.cpu.rf[W], t.cpu.rf[Z]};
     end
 
     initial begin
-        $dumpvars(0, cpu);
+        $dumpvars(0, t);
+        $dumpvars(0, tetris);
         $dumpvars(0, bc);
         $dumpvars(0, de);
         $dumpvars(0, hl);
@@ -60,4 +47,21 @@ module top_tb;
     end
 
     initial #4096 $finish;
+endmodule
+
+module rom(
+    input wire clk,
+    input wire [14:0] addr,
+    output reg [7:0] data
+);
+    reg [7:0] mem [0:'h7fff];
+    int fd, code;
+    initial begin
+        fd = $fopen("tetris.gb", "rb");
+        code = $fread(mem, fd, 0, 'h7fff);
+        $fclose(fd);
+        // Boot rom overlaps cartridge rom.
+        $readmemh("dmg_rom.hex", mem, 0, 255);
+    end
+    always_ff @(posedge clk) data <= mem[addr];
 endmodule
