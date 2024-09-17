@@ -125,6 +125,7 @@ module sm83(
                     HL: {rf[H], rf[L]} <= rr_wb;
                     SP: {rf[SPH], rf[SPL]} <= rr_wb;
                     AF: {rf[A], flags} <= rr_wb[15:4];
+                    PC: {rf[PCH], rf[PCL]} <= rr_wb;
                 endcase
             flags <= f_out;
             if (ctrl.t_db != F && ctrl.t_db != MEM && ctrl.t_db != NONE)
