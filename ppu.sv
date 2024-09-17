@@ -51,7 +51,7 @@ module ppu_engine(
             ly <= 0;
         end else begin
             lx <= lx + 1'b1;
-            if (lx == 9'd456) begin
+            if (lx == 9'd455) begin
                 lx <= 0;
                 if (ly == 8'd153) ly <= 0;
                 else ly <= ly + 1'b1;

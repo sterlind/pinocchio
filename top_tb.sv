@@ -46,7 +46,8 @@ module top_tb;
         $dumpvars(0, wz);
     end
 
-    initial #('h20876*4 + 8) $finish;
+    // 20874
+    initial #('h208f4*4) $finish;
 endmodule
 
 module rom(
