@@ -46,7 +46,7 @@ module top_tb;
         $dumpvars(0, wz);
     end
 
-    initial #('h1c010*4) $finish;
+    initial #('h1c010*4 + 8) $finish;
 endmodule
 
 module rom(
