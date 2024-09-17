@@ -5,6 +5,7 @@ typedef enum logic [15:0] {
     ROM     = 16'b0xxx_xxxx_xxxx_xxxx,
     VRAM    = 16'b100x_xxxx_xxxx_xxxx,
     WRAM    = 16'b110x_xxxx_xxxx_xxxx,
+    HRAM    = 16'b1111_1111_1xxx_xxxx,
     PPU_REG = 16'hff4x
 } mem_mask;
 
@@ -16,9 +17,10 @@ module top(
 );
     reg [12:0] vram_addr, wram_addr;
     reg [7:0] wram_in, vram_in;
-    reg wram_write, vram_write;
+    reg wram_write, vram_write, hram_write;
     ram #(.D(13)) vram (.clk(clk), .addr(vram_addr), .d_in(vram_in), .write(vram_write));
     ram #(.D(13)) wram (.clk(clk), .addr(wram_addr), .d_in(wram_in), .write(wram_write));
+    ram #(.D(7)) hram (.clk(~clk_cpu), .addr(cpu.addr[6:0]), .d_in(cpu.d_out), .write(hram_write));
 
     wire clk_cpu;
     clkdiv4 clk_cpu_div (
@@ -49,8 +51,10 @@ module top(
 
     always_comb begin
         bus_out = 'x;
+        hram_write = 0; wram_write = 0; vram_write = 0;
         rom_addr = 'x;
         casex (cpu.addr)
+            HRAM: begin hram_write = cpu.write; bus_out = hram.d_out; end
             ROM: begin rom_addr = cpu.addr; bus_out = rom_data; end
             VRAM: begin vram_addr = cpu.addr; vram_write = cpu.write; vram_in = cpu.d_out; bus_out = vram.d_out; end
             WRAM: begin wram_addr = cpu.addr; wram_write = cpu.write; wram_in = cpu.d_out; bus_out = wram.d_out; end
