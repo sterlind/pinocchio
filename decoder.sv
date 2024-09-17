@@ -34,7 +34,7 @@ typedef enum logic [7:0] {
     ALU_A_N     = 8'b11xxx110,
 
     RET_CC      = 8'b110xx000,
-    RET         = 8'b110xx001,
+    RET         = 8'b11001001,
     CALL_CC_NN  = 8'b110xx100,
     CALL_NN     = 8'b11001101,
 
@@ -268,7 +268,7 @@ module decoder(
         s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY; t_db = NONE;
 
         if (in_prefix) casex ({opcode, step})
-            {SRU_R,     3'd0}: /* r <- sru r; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; end
+            {SRU_R,     3'd0}: /* r <- sru r; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = r8_src; t_db = r8_src; end
             {BIT_B_R,   3'd0}: /* f_z <- bit(b, r); inc pc; done */     begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; sru_mode = SRU_BIT; s_db = r8_src; end
             default: $error("Bad *prefix* opcode, step (%h, %d)", opcode, step);
         endcase

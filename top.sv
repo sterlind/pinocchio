@@ -15,13 +15,6 @@ module top(
     output reg [14:0] rom_addr,
     input wire [7:0] rom_data
 );
-    reg [12:0] vram_addr, wram_addr;
-    reg [7:0] wram_in, vram_in;
-    reg wram_write, vram_write, hram_write;
-    ram #(.D(13)) vram (.clk(clk), .addr(vram_addr), .d_in(vram_in), .write(vram_write));
-    ram #(.D(13)) wram (.clk(clk), .addr(wram_addr), .d_in(wram_in), .write(wram_write));
-    ram #(.D(7)) hram (.clk(~clk_cpu), .addr(cpu.addr[6:0]), .d_in(cpu.d_out), .write(hram_write));
-
     wire clk_cpu;
     clkdiv4 clk_cpu_div (
         .clk(clk),
@@ -49,33 +42,44 @@ module top(
         .lcdc(ppu_reg.lcdc)
     );
 
+    reg clk_ram;
+    assign clk_ram = ~clk_cpu;
+
+    reg hram_write;
+    reg [7:0] hram_in;
+    ram #(.D(7)) hram (
+        .clk(clk_ram),
+        .addr(cpu.addr[6:0]),
+        .d_in(hram_in),
+        .write(hram_write)
+    );
+
     always_comb begin
         bus_out = 'x;
-        hram_write = 0; wram_write = 0; vram_write = 0;
         rom_addr = 'x;
+        hram_write = 0;
+        hram_in = 'x;
         casex (cpu.addr)
-            HRAM: begin hram_write = cpu.write; bus_out = hram.d_out; end
+            HRAM: begin bus_out = hram.d_out; hram_write = cpu.write; hram_in = cpu.d_out; end
             ROM: begin rom_addr = cpu.addr; bus_out = rom_data; end
-            VRAM: begin vram_addr = cpu.addr; vram_write = cpu.write; vram_in = cpu.d_out; bus_out = vram.d_out; end
-            WRAM: begin wram_addr = cpu.addr; wram_write = cpu.write; wram_in = cpu.d_out; bus_out = wram.d_out; end
             PPU_REG: begin bus_out = ppu_reg.reg_out; ppu_reg_write = cpu.write; end
         endcase
     end
 endmodule
 
-module ram #(
-    parameter D = 12
-) (
+module ram #(parameter D = 8) (
     input wire clk,
-    input wire [D-1:0] addr,
-    input wire [7:0] d_in,
-    output wire [7:0] d_out,
-    input wire write
+    input wire [(D-1):0] addr,
+    input wire write,
+    input byte d_in,
+    output byte d_out
 );
-    reg mem [0:2**D-1];
-    always_ff @(posedge clk)
+    localparam BYTES = 1 << D;
+    reg [7:0] mem [0:BYTES-1];
+    always_ff @(posedge clk) begin
+        d_out <= mem[addr];
         if (write) mem[addr] <= d_in;
-    assign d_out = mem[addr];
+    end
 endmodule
 
 module clkdiv4(
