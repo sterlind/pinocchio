@@ -269,7 +269,7 @@ module decoder(
 
         if (in_prefix) casex ({opcode, step})
             {SRU_R,     3'd0}: /* r <- sru r; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; end
-            {BIT_B_R,   3'd0}: /* f_z <- bit(b, r); inc pc; done */     begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_ALU; sru_mode = SRU_BIT; s_db = r8_src; t_db = r8_src; end
+            {BIT_B_R,   3'd0}: /* f_z <- bit(b, r); inc pc; done */     begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; sru_mode = SRU_BIT; s_db = r8_src; t_db = r8_src; end
             default: $error("Bad *prefix* opcode, step (%h, %d)", opcode, step);
         endcase
         else casex ({opcode, step})

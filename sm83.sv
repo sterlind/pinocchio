@@ -20,7 +20,8 @@ module sm83(
 
     decoder ctrl (
         .opcode(ir),
-        .step(step)
+        .step(step),
+        .in_prefix(seq.in_prefix)
     );
 
     always_comb
@@ -52,7 +53,7 @@ module sm83(
     // IDU:
     reg idu_inc, idu_bypass;
     reg [1:0] adj_bits;
-    assign adj_bits = {alu.f_out.f_z, alu.f_out.f_c};
+    assign adj_bits = {f_out.f_z, f_out.f_c};
     idu_m idu (
         .ab(addr),
         .inc(idu_inc),
@@ -188,7 +189,7 @@ module sru_m (
     assign bit_set = in[idx];
     always_comb case (mode)
         SRU_OP: f_out = {3'b0, c_out};
-        SRU_BIT: f_out = {bit_set, 3'b0};
+        SRU_BIT: f_out = {~bit_set, 3'b0};
         default: f_out = f_in;
     endcase
     always_comb case (mode)
@@ -196,7 +197,7 @@ module sru_m (
             case (op)
                 SRU_RL: {c_out, res} = {in, c_in};
                 SRU_RR: {c_out, res} = {c_in, in};
-                default: {c_out, res} = 9'bx; // Todo
+                default: {c_out, res} = {1'bx, in};
             endcase
         end
     endcase
