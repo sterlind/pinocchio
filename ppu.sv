@@ -25,9 +25,11 @@ module ppu_ctrl(
     output lcdc_t lcdc,
     input byte ly
 );
-    always_ff @(posedge clk) case (reg_addr)
-        LCDC: lcdc <= reg_in;
-    endcase
+    always_ff @(posedge clk)
+        if (reg_write)
+            case (reg_addr)
+                LCDC: lcdc <= reg_in;
+            endcase
 
     always_comb begin
         reg_out = 'x;

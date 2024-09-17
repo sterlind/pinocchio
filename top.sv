@@ -59,6 +59,7 @@ module top(
         rom_addr = 'x;
         hram_write = 0;
         hram_in = 'x;
+        ppu_reg_write = 0;
         casex (cpu.addr)
             HRAM: begin bus_out = hram.d_out; hram_write = cpu.write; hram_in = cpu.d_out; end
             ROM: begin rom_addr = cpu.addr; bus_out = rom_data; end
