@@ -47,7 +47,10 @@ module top_tb;
     end
 
     // 20874
-    initial #('h208f4*4) $finish;
+    //initial #('h20874*4 + 228*4) $finish;
+    //initial #('h288be*4) $finish;
+    //initial #('h311f6*4) $finish;
+    initial #('h39b4e*4) $finish;
 endmodule
 
 module rom(
