@@ -14,6 +14,30 @@ typedef struct packed {
     bit bg_ena;
 } lcdc_t;
 
+module ppu_m (
+    input wire clk,
+    // Regs:
+    input wire [3:0] reg_addr,
+    input wire [7:0] reg_d_wr,
+    output logic [7:0] reg_d_rd,
+    input wire reg_write,
+    // VRAM:
+    input wire [12:0] vram_addr,
+    input wire [7:0] vram_d_wr,
+    output logic [7:0] vram_d_rd,
+    input wire vram_write,
+    // OAM:
+    input wire [7:0] oam_addr,
+    input wire [7:0] oam_d_wr,
+    output logic [7:0] oam_d_rd,
+    input wire oam_write,
+    // Display:
+    output wire lcd_clk, lcd_ena,
+    output wire lcd_hsync, lcd_vsync,
+    output wire [1:0] lcd_color
+);
+endmodule
+
 module ppu_ctrl(
     // Bus <-> PPU Regs:
     input wire clk,
