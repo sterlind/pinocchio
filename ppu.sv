@@ -45,11 +45,14 @@ module ppu_m (
     output wire lcd_hsync, lcd_vsync, lcd_pixel,
     output wire [1:0] lcd_color
 );
+    reg mem_clk;
+    assign mem_clk = ~clk;
+
     // VRAM:
     reg [12:0] vram_addr;
     reg vram_write;
     ram #(.WORDS(8192)) vram (
-        .clk(clk),
+        .clk(mem_clk),
         .addr(vram_addr),
         .write(vram_write),
         .d_in(vram_d_wr),
@@ -65,7 +68,7 @@ module ppu_m (
     reg [5:0] oam_dma_src_base;
     reg oam_write;
     ram #(.WORDS(80), .WIDTH(16)) oam (
-        .clk(clk),
+        .clk(mem_clk),
         .addr(oam_addr),
         .write(oam_write)
     );
@@ -161,7 +164,7 @@ module ppu_renderer(
 
     reg transfer_pixels;
     assign transfer_pixels = fetcher.full && bg_fifo.empty;
-    assign fetcher_rst = transfer_pixels || ~lcdc.ena;
+    assign fetcher_rst = transfer_pixels || phase != PHASE_DRAW;
     pixel_fetcher fetcher (
         .clk(clk),
         .vram_addr(vram_addr),
@@ -182,7 +185,8 @@ module ppu_renderer(
         .clk(clk),
         .rst(fifo_rst),
         .load(transfer_pixels),
-        .pull(fifo_pull)
+        .pull(fifo_pull),
+        .pixels_in(fetcher.pixels)
     );
 endmodule
 
@@ -206,9 +210,10 @@ module bg_fifo_m (
     endgenerate
     always @(posedge clk) if (load) buffer[7] <= pixels_in[7]; else if (pull) buffer[7] <= 0;
 
-    always @(posedge clk)
+    always_ff @(posedge clk)
         if (rst) filled <= 0;
-        else if (pull) filled <= {1'b0, filled[6:0]};
+        else if (load) filled <= 8'hff;
+        else if (pull) filled <= {1'b0, filled[7:1]};
     
     assign color = buffer[filled], empty = ~filled[0];
 endmodule
