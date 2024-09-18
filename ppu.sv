@@ -120,15 +120,33 @@ module ppu_renderer(
     output reg phase
 );
     reg [8:0] dot_ctr;
+    reg [7:0] lx;
     always_ff @(posedge clk)
         if (~lcdc.ena) begin
+            // On disable:
             dot_ctr <= 0;
             ly <= 0;
+            lx <= 0;
+            phase <= PHASE_OAM_SCAN;
         end else if (dot_ctr == 9'd455) begin
+            // On end of scanline:
             dot_ctr <= 0;
-            if (ly == 8'd153) ly <= 0;
-            else ly <= ly + 1;
-        end else dot_ctr <= dot_ctr + 1;
+            lx <= 0;
+            case (ly)
+                8'd143: begin phase <= PHASE_VBLANK; ly <= 8'd144; end
+                8'd153: begin phase <= PHASE_OAM_SCAN; ly <= 0; end
+                default: begin phase <= PHASE_OAM_SCAN; ly <= ly + 1'b1; end
+            endcase
+        end else begin
+            // Within scanline:
+            if (phase != PHASE_VBLANK) begin
+                // Handle dot tick within scan line:
+                if (dot_ctr == 9'd79) phase <= PHASE_DRAW;
+                if (lx == 8'd159) phase <= PHASE_HBLANK;
+            end
+            dot_ctr <= dot_ctr + 1;
+        end
+
 endmodule
 
 typedef enum logic [2:0] {
