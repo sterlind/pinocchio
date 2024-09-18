@@ -42,8 +42,7 @@ module ppu_m (
     output logic [7:0] oam_d_rd,
     input wire oam_write_in,
     // Display:
-    output wire lcd_clk, lcd_ena,
-    output wire lcd_hsync, lcd_vsync,
+    output wire lcd_hsync, lcd_vsync, lcd_pixel,
     output wire [1:0] lcd_color
 );
     // VRAM:
@@ -94,8 +93,16 @@ module ppu_m (
     ppu_renderer renderer (
         .clk(clk),
         .vram_in(vram.d_out),
-        .oam_in(oam.d_out)
+        .oam_in(oam.d_out),
+        .lcdc(lcdc),
+        .scy(scy),
+        .scx(scx)
     );
+
+    assign lcd_hsync = renderer.phase == PHASE_HBLANK;
+    assign lcd_vsync = renderer.phase == PHASE_VBLANK;
+    assign lcd_pixel = renderer.pixel_valid;
+    assign lcd_color = renderer.pixel;
 endmodule
 
 typedef enum logic [1:0] {
@@ -117,8 +124,13 @@ module ppu_renderer(
     input byte scy, scx,
     output byte ly,
     // Display:
-    output reg phase
+    output reg phase,
+    output reg pixel_valid,
+    output reg [1:0] pixel
 );
+    assign pixel_valid = fifo_pull;
+    assign pixel = bg_fifo.color;
+
     reg [8:0] dot_ctr;
     reg [7:0] lx;
     always_ff @(posedge clk)
@@ -147,6 +159,61 @@ module ppu_renderer(
             dot_ctr <= dot_ctr + 1;
         end
 
+    reg fetch_clk;
+    always_ff @(posedge clk)
+        if (~lcdc.ena) fetch_clk <= 0;
+        else fetch_clk <= ~fetch_clk;
+
+    reg transfer_pixels;
+    assign transfer_pixels = fetcher.full && bg_fifo.empty;
+    pixel_fetcher fetcher (
+        .clk(fetch_clk),
+        .vram_addr(vram_addr),
+        .vram_in(vram_in),
+        .ly(ly),
+        .lx(lx),
+        .lcdc(lcdc),
+        .scx(scx),
+        .scy(scy),
+        .rst(transfer_pixels)
+    );
+
+    reg fifo_rst;
+    reg fifo_pull;
+    assign fifo_pull = phase == PHASE_DRAW && ~bg_fifo.empty;
+    bg_fifo_m bg_fifo (
+        .clk(clk),
+        .rst(fifo_rst),
+        .load(transfer_pixels),
+        .pull(fifo_pull)
+    );
+endmodule
+
+module bg_fifo_m (
+    input wire clk,
+    input wire rst,
+    input wire pull,
+    input wire [1:0] pixels_in [7:0],
+    input wire load,
+    output reg [1:0] color,
+    output reg empty
+);
+    reg [7:0] filled;
+    reg [1:0] buffer[7:0];
+    genvar k;
+    generate
+        for (k = 0; k < 7; k = k + 1)
+            always @(posedge clk)
+                if (load) buffer[k] <= pixels_in[k];
+                else if (pull) buffer[k] <= buffer[k + 1];
+    endgenerate
+    always @(posedge clk) if (load) buffer[7] <= pixels_in[7]; else if (pull) buffer[7] <= 0;
+
+    always @(posedge clk)
+        if (rst) filled <= 0;
+        else if (pull) filled <= {1'b0, filled[6:0]};
+    
+    assign color = buffer[filled], empty = ~filled[0];
 endmodule
 
 typedef enum logic [2:0] {
