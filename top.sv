@@ -21,25 +21,22 @@ module top(
         .div_clk(clk_cpu)
     );
 
-    reg [7:0] bus_out;
+    reg [7:0] bus_in;
     sm83 cpu (
         .clk(clk_cpu),
         .rst(rst),
-        .d_in(bus_out)
+        .d_in(bus_in)
     );
 
-    reg ppu_reg_write;
-    ppu_ctrl ppu_reg (
+    reg ppu_reg_write, vram_write;
+    ppu_m ppu (
         .clk(clk),
         .reg_addr(cpu.addr[3:0]),
-        .reg_in(cpu.d_out),
         .reg_write(ppu_reg_write),
-        .ly(ppu.ly)
-    );
-
-    ppu_engine ppu (
-        .clk(clk),
-        .lcdc(ppu_reg.lcdc)
+        .reg_d_wr(cpu.d_out),
+        .vram_addr_in(cpu.addr[12:0]),
+        .vram_write_in(vram_write),
+        .vram_d_wr(cpu.d_out)
     );
 
     reg clk_ram;
@@ -47,39 +44,23 @@ module top(
 
     reg hram_write;
     reg [7:0] hram_in;
-    ram #(.D(7)) hram (
+    ram #(.WORDS(128)) hram (
         .clk(clk_ram),
         .addr(cpu.addr[6:0]),
-        .d_in(hram_in),
+        .d_in(cpu.d_out),
         .write(hram_write)
     );
 
     always_comb begin
-        bus_out = 'x;
+        hram_write = 0; ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0;
+        bus_in = 'x;
         rom_addr = 'x;
-        hram_write = 0;
-        hram_in = 'x;
-        ppu_reg_write = 0;
         casex (cpu.addr)
-            HRAM: begin bus_out = hram.d_out; hram_write = cpu.write; hram_in = cpu.d_out; end
-            ROM: begin rom_addr = cpu.addr; bus_out = rom_data; end
-            PPU_REG: begin bus_out = ppu_reg.reg_out; ppu_reg_write = cpu.write; end
+            VRAM: begin bus_in = ppu.vram_d_rd; vram_write = cpu.write; end
+            HRAM: begin bus_in = hram.d_out; hram_write = cpu.write; end
+            ROM: begin rom_addr = cpu.addr; bus_in = rom_data; end
+            PPU_REG: begin bus_in = ppu.reg_d_rd; ppu_reg_write = cpu.write; end
         endcase
-    end
-endmodule
-
-module ram #(parameter D = 8) (
-    input wire clk,
-    input wire [(D-1):0] addr,
-    input wire write,
-    input byte d_in,
-    output byte d_out
-);
-    localparam BYTES = 1 << D;
-    reg [7:0] mem [0:BYTES-1];
-    always_ff @(posedge clk) begin
-        d_out <= mem[addr];
-        if (write) mem[addr] <= d_in;
     end
 endmodule
 
