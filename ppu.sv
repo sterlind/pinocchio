@@ -8,13 +8,6 @@ typedef enum logic [3:0] {
     LY      = 4'h4
 } ppu_reg_t;
 
-typedef enum logic [1:0] {
-    PHASE_HBLANK,
-    PHASE_VBLANK,
-    PHASE_OAM_SCAN,
-    PHASE_DRAW
-} ppu_phase_t;
-
 typedef struct packed {
     bit ena;
     bit win_tile_map;
@@ -105,6 +98,13 @@ module ppu_m (
     );
 endmodule
 
+typedef enum logic [1:0] {
+    PHASE_HBLANK,
+    PHASE_VBLANK,
+    PHASE_OAM_SCAN,
+    PHASE_DRAW
+} ppu_phase_t;
+
 module ppu_renderer(
     input wire clk,
     // Bus -> VRAM, OAM:
@@ -117,36 +117,18 @@ module ppu_renderer(
     input byte scy, scx,
     output byte ly,
     // Display:
-    output reg vblank,
-    output reg draw
+    output reg phase
 );
     reg [8:0] dot_ctr;
-    reg fetch_clk;
     always_ff @(posedge clk)
         if (~lcdc.ena) begin
-            draw <= 0;
             dot_ctr <= 0;
-            lx <= 0;
             ly <= 0;
-            vblank <= 0;
         end else if (dot_ctr == 9'd455) begin
             dot_ctr <= 0;
-            lx <= 0;
-            draw <= 0;
-            case (ly)
-                8'd143: begin vblank <= 1; ly <= ly + 1'b1; end
-                8'd153: begin vblank <= 0; ly <= 0; end
-                default: ly <= ly + 1'b1;
-            endcase
-        end else begin
-            dot_ctr <= dot_ctr + 1'b1;
-            if (dot_ctr == 9'd79) draw <= 1;
-        end
-
-    pixel_fetcher fetcher (
-        .clk(fetch_clk),
-
-    )
+            if (ly == 8'd153) ly <= 0;
+            else ly <= ly + 1;
+        end else dot_ctr <= dot_ctr + 1;
 endmodule
 
 typedef enum logic [2:0] {
