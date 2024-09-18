@@ -121,14 +121,17 @@ module ppu_renderer(
     output reg draw
 );
     reg [8:0] dot_ctr;
+    reg fetch_clk;
     always_ff @(posedge clk)
         if (~lcdc.ena) begin
             draw <= 0;
             dot_ctr <= 0;
+            lx <= 0;
             ly <= 0;
             vblank <= 0;
         end else if (dot_ctr == 9'd455) begin
             dot_ctr <= 0;
+            lx <= 0;
             draw <= 0;
             case (ly)
                 8'd143: begin vblank <= 1; ly <= ly + 1'b1; end
@@ -140,11 +143,10 @@ module ppu_renderer(
             if (dot_ctr == 9'd79) draw <= 1;
         end
 
-    reg [7:0] px_base, px, py_base, py;
-    assign px = px_base + scx, py = py_base + scy;
-    always_ff @(posedge clk) if (draw) begin
+    pixel_fetcher fetcher (
+        .clk(fetch_clk),
 
-    end
+    )
 endmodule
 
 typedef enum logic [2:0] {
@@ -172,13 +174,18 @@ typedef enum logic [2:0] {
 // NOTE: Clock this at half speed.
 module pixel_fetcher (
     input wire clk,
-    input wire ena,
+    input wire rst,
+    input wire [7:0] ly, lx,
     input lcdc_t lcdc,
     input byte scx, scy,
     output reg [12:0] vram_addr,
-    input wire [7:0] vram_in
+    input wire [7:0] vram_in,
+    output reg [1:0] pixels [7:0],
+    output reg full
 );
     reg [7:0] px, py;
+    assign py = ly + scy, px = lx + scx;
+
     reg [7:0] tile_id, data_low, data_high;
 
     reg [12:0] tile_addr;
@@ -186,6 +193,13 @@ module pixel_fetcher (
 
     reg [11:0] data_addr;
     assign data_addr = {2'b00, tile_id, py[2:0]}; // Todo: fix to use lcdc.4
+
+    assign full = state == FETCH_PUSH;
+    genvar k;
+    generate
+        for (k = 0; k < 8; k = k + 1)
+            assign pixels[k] = {data_high[k], data_low[k]};
+    endgenerate
 
     fetcher_state_t state;
     always_comb case (state)
@@ -195,7 +209,7 @@ module pixel_fetcher (
     endcase
 
     always_ff @(posedge clk)
-        if (~ena) state <= FETCH_TILE;
+        if (rst) state <= FETCH_TILE;
         else case (state)
             FETCH_TILE: begin state <= FETCH_DATA_LOW; tile_id <= vram_in; end
             FETCH_DATA_LOW: begin state <= FETCH_DATA_HIGH; data_low <= vram_in; end
