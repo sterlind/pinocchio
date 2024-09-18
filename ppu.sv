@@ -1,8 +1,11 @@
 `include "ram.sv"
 
 typedef enum logic [3:0] {
-    LCDC = 4'h0,
-    LY = 4'h4
+    LCDC    = 4'h0,
+    STAT    = 4'h1,
+    SCY     = 4'h2,
+    SCX     = 4'h3,
+    LY      = 4'h4
 } ppu_reg_t;
 
 typedef enum logic [1:0] {
@@ -31,7 +34,7 @@ module ppu_m (
     input wire [7:0] dma_d_in,
     input wire dma_active,
     // Regs:
-    input wire [3:0] reg_addr,
+    input ppu_reg_t reg_addr,
     input wire [7:0] reg_d_wr,
     output logic [7:0] reg_d_rd,
     input wire reg_write,
@@ -50,89 +53,83 @@ module ppu_m (
     output wire lcd_hsync, lcd_vsync,
     output wire [1:0] lcd_color
 );
-    ppu_phase_t phase;
-
+    // VRAM:
     reg [12:0] vram_addr;
     reg vram_write;
-    ram #(WORDS = 8192) vram (
+    ram #(.WORDS(8192)) vram (
         .clk(clk),
         .addr(vram_addr),
         .write(vram_write),
         .d_in(vram_d_wr),
         .d_out(vram_d_rd)
     );
-    always_comb case (phase)
+    always_comb case (renderer.phase)
         PHASE_DRAW: begin vram_addr = renderer.vram_addr; vram_write = 0; end
         default: begin vram_addr = vram_addr_in; vram_write = vram_write_in; end
     endcase
 
+    // OAM:
     reg [6:0] oam_addr;
     reg [5:0] oam_dma_src_base;
-    ram #(WORDS = 80, WIDTH = 16) oam (
+    reg oam_write;
+    ram #(.WORDS(80), .WIDTH(16)) oam (
         .clk(clk),
         .addr(oam_addr),
         .write(oam_write)
     );
-    always_comb 
+    always_comb case (renderer.phase)
+        PHASE_HBLANK, PHASE_VBLANK: begin oam_addr = oam_addr_in; oam_write = oam_write_in; end
+        default: begin oam_write = 0; oam_addr = renderer.oam_addr; end
+    endcase
+
+    // Regs:
+    lcdc_t lcdc;
+    reg [7:0] scy, scx;
+    always_comb case (reg_addr)
+        LCDC: reg_d_rd = lcdc;
+        SCY: reg_d_rd = scy;
+        SCX: reg_d_rd = scx;
+        LY: reg_d_rd = renderer.ly;
+        default: reg_d_rd = 'x;
+    endcase
+    always_ff @(posedge clk) if (reg_write) case (reg_addr)
+        LCDC: lcdc = reg_d_wr;
+        SCY: scy = reg_d_wr;
+        SCX: scx = reg_d_wr;
+    endcase
 
     ppu_renderer renderer (
         .clk(clk),
-        .vram_in(vram.d_out)
+        .vram_in(vram.d_out),
+        .oam_in(oam.d_out)
     );
 endmodule
 
 module ppu_renderer(
     input wire clk,
+    // Bus -> VRAM, OAM:
     output wire [12:0] vram_addr,
     input wire [7:0] vram_in,
-    input wire [5:0]
-);
-endmodule
-
-module ppu_ctrl(
-    // Bus <-> PPU Regs:
-    input wire clk,
-    input wire [3:0] reg_addr,
-    input wire [7:0] reg_in,
-    output logic [7:0] reg_out,
-    input wire reg_write,
-    // Control signals:
-    output lcdc_t lcdc,
-    input byte ly
-);
-    always_ff @(posedge clk)
-        if (reg_write)
-            case (reg_addr)
-                LCDC: lcdc <= reg_in;
-            endcase
-
-    always_comb begin
-        reg_out = 'x;
-        case (reg_addr)
-            LY: reg_out = ly;
-        endcase
-    end
-endmodule
-
-module ppu_engine(
-    input wire clk,
+    input wire [6:0] oam_addr,
+    input wire [15:0] oam_in,
+    // Regs:
     input lcdc_t lcdc,
-    output byte ly
+    output byte ly,
+    // Misc:
+    output reg vblank
 );
-    reg [8:0] lx;
-
-    // Fixme: placeholder.
-    always_ff @(posedge clk) begin
+    reg [8:0] dot_ctr;
+    always_ff @(posedge clk)
         if (~lcdc.ena) begin
-            lx <= 0;
+            dot_ctr <= 0;
             ly <= 0;
-        end else begin
-            lx <= lx + 1'b1;
-            if (lx == 9'd455) begin
-                lx <= 0;
-                if (ly == 8'd153) ly <= 0;
-                else ly <= ly + 1'b1;
-            end
-        end
-    end
+            vblank <= 0;
+        end else if (dot_ctr == 9'd455) begin
+            dot_ctr <= 0;
+            case (ly)
+                8'd143: begin vblank <= 1; ly <= ly + 1'b1; end
+                8'd153: begin vblank <= 0; ly <= 0; end
+                default: ly <= ly + 1'b1;
+            endcase
+        end else dot_ctr <= dot_ctr + 1'b1;
 endmodule
