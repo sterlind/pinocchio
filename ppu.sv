@@ -117,20 +117,88 @@ module ppu_renderer(
     input byte scy, scx,
     output byte ly,
     // Display:
-    output reg vblank
+    output reg vblank,
+    output reg draw
 );
     reg [8:0] dot_ctr;
     always_ff @(posedge clk)
         if (~lcdc.ena) begin
+            draw <= 0;
             dot_ctr <= 0;
             ly <= 0;
             vblank <= 0;
         end else if (dot_ctr == 9'd455) begin
             dot_ctr <= 0;
+            draw <= 0;
             case (ly)
                 8'd143: begin vblank <= 1; ly <= ly + 1'b1; end
                 8'd153: begin vblank <= 0; ly <= 0; end
                 default: ly <= ly + 1'b1;
             endcase
-        end else dot_ctr <= dot_ctr + 1'b1;
+        end else begin
+            dot_ctr <= dot_ctr + 1'b1;
+            if (dot_ctr == 9'd79) draw <= 1;
+        end
+
+    reg [7:0] px_base, px, py_base, py;
+    assign px = px_base + scx, py = py_base + scy;
+    always_ff @(posedge clk) if (draw) begin
+
+    end
+endmodule
+
+typedef enum logic [2:0] {
+    FETCH_TILE,
+    FETCH_DATA_LOW,
+    FETCH_DATA_HIGH,
+    FETCH_PUSH
+} fetcher_state_t;
+
+// Addresses:
+// Tile maps are at 9800-9BFF and 9C00-9FFF.
+// Tile data is in three blocks:
+// 0: 8000-87FF
+// 1: 8800-8FFF
+// 2: 9000-97FF
+// Addresses are x_xxxx_xxxx_xxxx (8000-9FFF).
+// Blocks:
+// 0: 0_0000_0000_0000 - 0_0111_1111_1111
+// 1: 0_1000_0000_0000 - 0_1111_1111_1111
+// 2: 1_0000_0000_0000 - 1_0111_1111_1111
+// Tile maps:
+// A: 1_1000_0000_0000 - 1_1011_1111_1111
+// B: 1_1100_0000_0000 - 1_1111_1111_1111
+// So 1_1xaa_aaab_bbbb where x = bit, a = tx, b = ty.
+// NOTE: Clock this at half speed.
+module pixel_fetcher (
+    input wire clk,
+    input wire ena,
+    input lcdc_t lcdc,
+    input byte scx, scy,
+    output reg [12:0] vram_addr,
+    input wire [7:0] vram_in
+);
+    reg [7:0] px, py;
+    reg [7:0] tile_id, data_low, data_high;
+
+    reg [12:0] tile_addr;
+    assign tile_addr = {2'b11, lcdc.bg_tile_map, py[7:3], px[7:3]};
+
+    reg [11:0] data_addr;
+    assign data_addr = {2'b00, tile_id, py[2:0]}; // Todo: fix to use lcdc.4
+
+    fetcher_state_t state;
+    always_comb case (state)
+        FETCH_TILE: vram_addr = tile_addr;
+        FETCH_DATA_LOW: vram_addr = {data_addr, 1'b0};
+        FETCH_DATA_HIGH: vram_addr = {data_addr, 1'b1};
+    endcase
+
+    always_ff @(posedge clk)
+        if (~ena) state <= FETCH_TILE;
+        else case (state)
+            FETCH_TILE: begin state <= FETCH_DATA_LOW; tile_id <= vram_in; end
+            FETCH_DATA_LOW: begin state <= FETCH_DATA_HIGH; data_low <= vram_in; end
+            FETCH_DATA_HIGH: begin state <= FETCH_PUSH; data_high <= vram_in; end
+        endcase
 endmodule
