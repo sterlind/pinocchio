@@ -3,7 +3,7 @@ module ram #(parameter WORDS = 512, parameter WIDTH = 8) (
     input wire [D-1:0] addr,
     input wire write,
     input wire [W:0] d_in,
-    output logic [W:0] d_out
+    output reg [W:0] d_out
 );
     localparam D = $clog2(WORDS);
     localparam W = WIDTH-1;

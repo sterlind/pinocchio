@@ -124,7 +124,7 @@ module ppu_renderer(
     input byte scy, scx,
     output byte ly,
     // Display:
-    output reg phase,
+    output ppu_phase_t phase,
     output reg pixel_valid,
     output reg [1:0] pixel
 );
@@ -159,15 +159,11 @@ module ppu_renderer(
             dot_ctr <= dot_ctr + 1;
         end
 
-    reg fetch_clk;
-    always_ff @(posedge clk)
-        if (~lcdc.ena) fetch_clk <= 0;
-        else fetch_clk <= ~fetch_clk;
-
     reg transfer_pixels;
     assign transfer_pixels = fetcher.full && bg_fifo.empty;
+    assign fetcher_rst = transfer_pixels || ~lcdc.ena;
     pixel_fetcher fetcher (
-        .clk(fetch_clk),
+        .clk(clk),
         .vram_addr(vram_addr),
         .vram_in(vram_in),
         .ly(ly),
@@ -175,10 +171,11 @@ module ppu_renderer(
         .lcdc(lcdc),
         .scx(scx),
         .scy(scy),
-        .rst(transfer_pixels)
+        .rst(fetcher_rst)
     );
 
     reg fifo_rst;
+    assign fifo_rst = phase == PHASE_OAM_SCAN;
     reg fifo_pull;
     assign fifo_pull = phase == PHASE_DRAW && ~bg_fifo.empty;
     bg_fifo_m bg_fifo (
