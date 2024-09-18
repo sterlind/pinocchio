@@ -114,8 +114,9 @@ module ppu_renderer(
     input wire [15:0] oam_in,
     // Regs:
     input lcdc_t lcdc,
+    input byte scy, scx,
     output byte ly,
-    // Misc:
+    // Display:
     output reg vblank
 );
     reg [8:0] dot_ctr;
