@@ -131,7 +131,7 @@ module ppu_renderer(
     output reg pixel_valid,
     output reg [1:0] pixel
 );
-    assign pixel_valid = fifo_pull;
+    assign pixel_valid = fifo_pop;
     assign pixel = bg_fifo.color;
 
     reg [8:0] dot_ctr;
@@ -179,43 +179,41 @@ module ppu_renderer(
 
     reg fifo_rst;
     assign fifo_rst = phase == PHASE_OAM_SCAN;
-    reg fifo_pull;
-    assign fifo_pull = phase == PHASE_DRAW && ~bg_fifo.empty;
+    reg fifo_pop;
+    assign fifo_pop = phase == PHASE_DRAW && ~bg_fifo.empty;
     bg_fifo_m bg_fifo (
         .clk(clk),
         .rst(fifo_rst),
         .load(transfer_pixels),
-        .pull(fifo_pull),
-        .pixels_in(fetcher.pixels)
+        .pop(fifo_pop),
+        .load_hi(fetcher.pix_hi),
+        .load_lo(fetcher.pix_lo)
     );
 endmodule
 
 module bg_fifo_m (
     input wire clk,
     input wire rst,
-    input wire pull,
-    input wire [1:0] pixels_in [7:0],
+    input wire pop,
+    input wire [7:0] load_hi, load_lo,
     input wire load,
     output reg [1:0] color,
     output reg empty
 );
-    reg [7:0] filled;
-    reg [1:0] buffer[7:0];
-    genvar k;
-    generate
-        for (k = 0; k < 7; k = k + 1)
-            always @(posedge clk)
-                if (load) buffer[k] <= pixels_in[k];
-                else if (pull) buffer[k] <= buffer[k + 1];
-    endgenerate
-    always @(posedge clk) if (load) buffer[7] <= pixels_in[7]; else if (pull) buffer[7] <= 0;
-
+    reg [7:0] filled, buf_hi, buf_lo;
     always_ff @(posedge clk)
         if (rst) filled <= 0;
-        else if (load) filled <= 8'hff;
-        else if (pull) filled <= {1'b0, filled[7:1]};
-    
-    assign color = buffer[filled], empty = ~filled[0];
+        else if (load) begin
+            filled <= 'hff;
+            buf_hi <= load_hi; buf_lo <= load_lo;
+        end else if (pop) begin
+            filled <= filled >> 1;
+            buf_hi <= buf_hi >> 1;
+            buf_lo <= buf_lo >> 1;
+        end
+
+    assign color = {buf_hi[0], buf_lo[0]};
+    assign empty = ~|filled;
 endmodule
 
 typedef enum logic [2:0] {
@@ -249,7 +247,7 @@ module pixel_fetcher (
     input byte scx, scy,
     output reg [12:0] vram_addr,
     input wire [7:0] vram_in,
-    output reg [1:0] pixels [7:0],
+    output reg [7:0] pix_hi, pix_lo,
     output reg full
 );
     reg [7:0] px, py;
@@ -264,11 +262,7 @@ module pixel_fetcher (
     assign data_addr = {2'b00, tile_id, py[2:0]}; // Todo: fix to use lcdc.4
 
     assign full = state == FETCH_PUSH;
-    genvar k;
-    generate
-        for (k = 0; k < 8; k = k + 1)
-            assign pixels[k] = {data_high[k], data_low[k]};
-    endgenerate
+    assign pix_hi = data_high, pix_lo = data_low;
 
     fetcher_state_t state;
     always_comb case (state)
