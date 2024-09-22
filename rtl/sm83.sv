@@ -1,4 +1,3 @@
-`default_nettype none
 module sm83(
     input wire clk,
     input wire ce,
@@ -173,7 +172,7 @@ module sm83(
                     BC: {rf[B], rf[C]} <= rr_wb;
                     DE: {rf[D], rf[E]} <= rr_wb;
                     HL: {rf[H], rf[L]} <= rr_wb;
-                    SP: {rf[SPH], rf[SPL]} <= rr_wb;
+                    R16_SP: {rf[SPH], rf[SPL]} <= rr_wb;
                     AF: {rf[A], flags} <= rr_wb[15:4];
                     PC: {rf[PCH], rf[PCL]} <= rr_wb;
                 endcase
@@ -196,7 +195,7 @@ module sm83(
             BC: ab = {rf[B], rf[C]};
             DE: ab = {rf[D], rf[E]};
             HL: ab = {rf[H], rf[L]};
-            SP: ab = {rf[SPH], rf[SPL]};
+            R16_SP: ab = {rf[SPH], rf[SPL]};
             PC: ab = {rf[PCH], rf[PCL]};
             default: ab = 'x;
         endcase
@@ -289,5 +288,3 @@ module alu_m (
     end
 
 endmodule
-
-`default_nettype wire

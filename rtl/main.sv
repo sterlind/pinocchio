@@ -1,5 +1,5 @@
 typedef enum logic [15:0] {
-    ROM     = 16'b0xxx_xxxx_xxxx_xxxx,
+    ADDR_ROM     = 16'b0xxx_xxxx_xxxx_xxxx,
     VRAM    = 16'b100x_xxxx_xxxx_xxxx,
     WRAM    = 16'b110x_xxxx_xxxx_xxxx,
     HRAM    = 16'b1111_1111_1xxx_xxxx,
@@ -71,14 +71,14 @@ module dmg_main(
         .write(hram_write)
     );
 
+    assign rom_addr = cpu_addr[14:0];
     always_comb begin
         hram_write = 0; ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0;
         bus_in = 'x;
-        rom_addr = 'x;
         casex (cpu_addr)
             VRAM: begin bus_in = vram_d_rd; vram_write = cpu_write; end
             HRAM: begin bus_in = hram_d_out; hram_write = cpu_write; end
-            ROM: begin rom_addr = cpu_addr[14:0]; bus_in = rom_data; end
+            ADDR_ROM: begin bus_in = rom_data; end
             PPU_REG: begin bus_in = reg_d_rd; ppu_reg_write = cpu_write; end
         endcase
     end

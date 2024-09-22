@@ -96,7 +96,7 @@ typedef enum logic [1:0] {
 } cond_t;
 
 typedef enum logic [2:0] {
-    WZ, BC, DE, HL, AF, SP, PC, REG16_ANY = 3'bxxx
+    WZ, BC, DE, HL, AF, R16_SP, PC, REG16_ANY = 3'bxxx
 } reg16_t;
 
 typedef enum logic [1:0] {
@@ -169,7 +169,7 @@ module r16_decoder(
         2'd2: {r_idx, rh_idx, rl_idx} = {HL, H, L};
         2'd3:
             if (is_stk) {r_idx, rh_idx, rl_idx} = {AF, A, F};
-            else {r_idx, rh_idx, rl_idx} = {SP, SPH, SPL};
+            else {r_idx, rh_idx, rl_idx} = {R16_SP, SPH, SPL};
     endcase
 endmodule
 
@@ -348,13 +348,13 @@ module decoder(
 
             {CALL_NN,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {CALL_NN,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
-            {CALL_NN,   3'd2}: /* dec sp */                             begin idu = DEC; s_ab = SP; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
-            {CALL_NN,   3'd3}: /* [sp] <- pch; dec sp */                begin s_ab = SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
-            {CALL_NN,   3'd4}: /* [sp] <- pcl; pc <- wz */              begin s_ab = SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
+            {CALL_NN,   3'd2}: /* dec sp */                             begin idu = DEC; s_ab = R16_SP; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {CALL_NN,   3'd3}: /* [sp] <- pch; dec sp */                begin s_ab = R16_SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {CALL_NN,   3'd4}: /* [sp] <- pcl; pc <- wz */              begin s_ab = R16_SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
             {CALL_NN,   3'd5}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {RET,       3'd0}: /* z <- [sp]; inc sp */                  begin s_ab = SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
-            {RET,       3'd1}: /* w <- [sp]; inc sp */                  begin s_ab = SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {RET,       3'd0}: /* z <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {RET,       3'd1}: /* w <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {RET,       3'd2}: /* pc <- wz */                           begin ab_mask = AB_ZERO; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
             {RET,       3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
@@ -371,13 +371,13 @@ module decoder(
             {LDH_N_A,   3'd1}: /* [ff00 + z] <- a */                    begin s_ab = WZ; ab_mask = AB_MASK_OR_FF00; s_db = A; t_db = MEM; end
             {LDH_N_A,   3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {PUSH_R16S, 3'd0}: /* dec sp */                             begin idu = DEC; s_ab = SP; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
-            {PUSH_R16S, 3'd1}: /* [sp] <- r16h (stk); dec sp */         begin is_stk = 1; s_ab = SP; s_db = r16h; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
-            {PUSH_R16S, 3'd2}: /* [sp] <- r16l (stk) */                 begin is_stk = 1; s_ab = SP; s_db = r16l; t_db = MEM; end
+            {PUSH_R16S, 3'd0}: /* dec sp */                             begin idu = DEC; s_ab = R16_SP; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {PUSH_R16S, 3'd1}: /* [sp] <- r16h (stk); dec sp */         begin is_stk = 1; s_ab = R16_SP; s_db = r16h; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {PUSH_R16S, 3'd2}: /* [sp] <- r16l (stk) */                 begin is_stk = 1; s_ab = R16_SP; s_db = r16l; t_db = MEM; end
             {PUSH_R16S, 3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {POP_R16S,  3'd0}: /* z <- [sp]; inc sp */                  begin s_ab = SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
-            {POP_R16S,  3'd1}: /* w <- [sp]; inc sp */                  begin s_ab = SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = SP; end
+            {POP_R16S,  3'd0}: /* z <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {POP_R16S,  3'd1}: /* w <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {POP_R16S,  3'd2}: /* rr <- wz; inc pc; done */             begin is_stk = 1; done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_rr_wb = RR_WB_WZ; t_rr_wb = r16; end
 
             {LD_A_NN,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end

@@ -12,6 +12,7 @@ module top(
     assign led_sig = btn_rst;
     assign status_led = led_sig;
     reg rst;
+    initial rst = 0;
     reg nrst;
     reg [3:0] rst_ctr;
     always_ff @(posedge tclk) begin
@@ -20,11 +21,13 @@ module top(
     end
     assign nrst = &rst_ctr;
 
+/*
     debounce rst_debounce (
         .clk(tclk),
         .d(btn_rst),
         .q_fall(rst)
     );
+    */
 
     wire [14:0] rom_addr;
     wire [7:0] rom_data;
