@@ -42,18 +42,3 @@ module ram_80words_16bit (
         if (write) mem[addr] <= d_in;
     end
 endmodule
-
-module ram_128words_8bit (
-    input wire clk,
-    input wire ce,
-    input wire [6:0] addr,
-    input wire write,
-    input wire [7:0] d_in,
-    output reg [7:0] d_out
-);
-    reg [7:0] mem[0:127];
-    always_ff @(posedge clk) if (ce) begin
-        d_out <= mem[addr];
-        if (write) mem[addr] <= d_in;
-    end
-endmodule

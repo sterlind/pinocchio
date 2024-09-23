@@ -1,3 +1,5 @@
+`include "rtl/decoder.sv"
+
 module sm83(
     input wire clk,
     input wire ce,

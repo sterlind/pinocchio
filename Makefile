@@ -5,7 +5,7 @@ SOURCES = rtl/*.sv sim/prim_sim.v rtl/blocks/*
 all: run
 
 compile:
-	iverilog $(FLAGS) -o $(TOP_VVP) $(SOURCES)
+	iverilog $(FLAGS) -o $(TOP_VVP) -Y .sv -y rtl/ -y rtl/blocks/ sim/prim_sim.v 
 
 run: compile
 	vvp $(TOP_VVP)
