@@ -48,7 +48,10 @@ typedef enum logic [7:0] {
     LDH_A_N     = 8'b11110000,
     LDH_C_A     = 8'b11100010,
     LD_A_NN     = 8'b11111010,
-    LD_NN_A     = 8'b11101010
+    LD_NN_A     = 8'b11101010,
+
+    DI          = 8'b11110011,
+    EI          = 8'b11111011
 } opcode_t;
 
 typedef enum logic [7:0] {
@@ -241,7 +244,8 @@ module decoder(
     output idu_mode_t idu,          // Increment or decrement?
     output s_rr_wb_t s_rr_wb,       // R16 writeback source?
     output reg16_t t_rr_wb,         // R16 writeback target?
-    output logic wr_pc              // Latch PC from IDU out?
+    output logic wr_pc,             // Latch PC from IDU out?
+    output logic set_ime, rst_ime   // Set or reset IME?
 );
     reg8_t r8_dst;
     reg8_t r8_src;
@@ -276,6 +280,7 @@ module decoder(
         s_ab = REG16_ANY;
         s_db = NONE;
         next_cond = 'x;
+        set_ime = 0; rst_ime = 0;
 
         if (in_prefix) casex ({opcode, step})
             {SRU_R,     3'd0}: /* r <- sru r; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = r8_src; t_db = r8_src; end
@@ -395,6 +400,9 @@ module decoder(
             {LD_NN_A,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {LD_NN_A,   3'd2}: /* [wz] <- a */                          begin s_ab = WZ; s_db = A; t_db = MEM; end
             {LD_NN_A,   3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {DI,        3'd0}: /* ime <- 0; inc pc; done */             begin done = 1; rst_ime = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+            {EI,        3'd0}: /* ime <- 1; inc pc; done */             begin done = 1; set_ime = 1; idu = INC; s_ab = PC; wr_pc = 1; end
             //default: $error("Bad opcode, step (%h, %d)", opcode, step);
         endcase
     end
@@ -413,9 +421,6 @@ module sm83(
     reg [7:0] db;
     reg [7:0] rf /* synthesis syn_keep=1 */ [`MIN_REG8:`MAX_REG8];
     flags_t flags;
-
-    reg [15:0] pc2 /* synthesis syn_noprune syn_keep=1 syn_preserve=1 */;
-    assign pc2 = {rf[PCH], rf[PCL]};
 
     assign d_out = db;
 
@@ -441,6 +446,7 @@ module sm83(
     s_rr_wb_t c_s_rr_wb;
     reg16_t c_t_rr_wb;
     reg c_wr_pc;
+    reg c_rst_ime, c_set_ime;
     decoder ctrl (
         .opcode(ir),
         .step(step),
@@ -462,7 +468,9 @@ module sm83(
         .idu(c_idu),
         .s_rr_wb(c_s_rr_wb),
         .t_rr_wb(c_t_rr_wb),
-        .wr_pc(c_wr_pc)
+        .wr_pc(c_wr_pc),
+        .set_ime(c_set_ime),
+        .rst_ime(c_rst_ime)
     );
 
     always_comb
