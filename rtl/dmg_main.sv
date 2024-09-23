@@ -2,7 +2,6 @@ typedef enum logic [15:0] {
     ADDR_ROM     = 16'b0xxx_xxxx_xxxx_xxxx,
     VRAM    = 16'b100x_xxxx_xxxx_xxxx,
     WRAM    = 16'b110x_xxxx_xxxx_xxxx,
-    HRAM    = 16'b1111_1111_1xxx_xxxx,
     HIDEROM = 16'hff50,
     PPU_REG = 16'hff4x
 } mem_mask;
@@ -37,7 +36,7 @@ module dmg_main(
         .clk(clk),
         .ce(cpu_ce),
         .rst(rst),
-        .d_in(bus_in),
+        .d_in_ext(bus_in),
         .addr(cpu_addr),
         .d_out(cpu_d_out),
         .write(cpu_write)
@@ -61,18 +60,6 @@ module dmg_main(
         .lcd_color(lcd_color)
     );
 
-    reg hram_write;
-    reg [7:0] hram_in;
-    wire [7:0] hram_d_out;
-    ram_128words_8bit hram (
-        .clk(~clk),
-        .ce(cpu_ce),
-        .addr(cpu_addr[6:0]),
-        .d_in(cpu_d_out),
-        .d_out(hram_d_out),
-        .write(hram_write)
-    );
-
     reg hide_boot;
     initial hide_boot = 0;
     wire [7:0] boot_data;
@@ -94,24 +81,8 @@ module dmg_main(
         bus_in = 8'hff;
         casex (cpu_addr)
             VRAM: begin bus_in = vram_d_rd; vram_write = cpu_write; end
-            HRAM: begin bus_in = hram_d_out; hram_write = cpu_write; end
             ADDR_ROM: begin bus_in = (hide_boot || |rom_addr[14:8]) ? rom_data : boot_data; end
             PPU_REG: begin bus_in = reg_d_rd; ppu_reg_write = cpu_write; end
         endcase
-    end
-endmodule
-
-module ram_128words_8bit (
-    input wire clk,
-    input wire ce,
-    input wire [6:0] addr,
-    input wire write,
-    input wire [7:0] d_in,
-    output reg [7:0] d_out
-);
-    reg [7:0] mem[0:127];
-    always_ff @(posedge clk) if (ce) begin
-        d_out <= mem[addr];
-        if (write) mem[addr] <= d_in;
     end
 endmodule

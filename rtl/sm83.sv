@@ -459,7 +459,7 @@ module interrupt_controller (
         default: idx = 3'd0;
     endcase
 
-    always_ff @(posedge clk or negedge rst)
+    always_ff @(negedge clk or negedge rst)
         if (~rst) begin r_ie <= 0; r_if <= 0; ime <= 0; end
         else if (ce) begin
             if (rst_ime || ack) ime <= 0;
@@ -471,13 +471,19 @@ module interrupt_controller (
         end
 endmodule
 
+typedef enum logic [15:0] {
+    HRAM    = 16'b1111_1111_1xxx_xxxx,
+    IE      = 16'hffff,
+    IF      = 16'hff0f
+} cpu_internal_addr_t;
+
 module sm83(
     input wire clk,
     input wire ce,
     input wire rst,
     input wire [7:0] irq_in,
     output reg [15:0] addr /* synthesis syn_keep=1 */,
-    input wire [7:0] d_in /* synthesis syn_keep=1 */,
+    input wire [7:0] d_in_ext /* synthesis syn_keep=1 */,
     output wire [7:0] d_out /* synthesis syn_keep=1 */,
     output reg write
 );
@@ -486,6 +492,7 @@ module sm83(
     reg [7:0] rf /* synthesis syn_keep=1 */ [`MIN_REG8:`MAX_REG8];
     flags_t flags;
 
+    reg [7:0] d_in;
     assign d_out = db;
 
     wire [7:0] ir;
@@ -538,16 +545,37 @@ module sm83(
     );
 
     always_comb
-        if (!rst) begin write = 0; addr = 16'b0; end
-        else begin
-            case (c_ab_mask)
-                AB_ZERO: addr = 16'b0;
-                AB_NO_MASK: addr = ab;
-                AB_MASK_OR_FF00: addr = ab | 16'hff00;
-                AB_MASK_AND_FF00: addr = ab & 16'hff00;
-            endcase
-            write = c_t_db == MEM;
-        end
+        if (!rst) addr = 16'b0;
+        else case (c_ab_mask)
+            AB_ZERO: addr = 16'b0;
+            AB_NO_MASK: addr = ab;
+            AB_MASK_OR_FF00: addr = ab | 16'hff00;
+            AB_MASK_AND_FF00: addr = ab & 16'hff00;
+        endcase
+
+    reg hram_write;
+    wire [7:0] hram_rd;
+    ram_128words_8bit hram (
+        .clk(~clk),
+        .ce(ce),
+        .addr(addr[6:0]),
+        .d_in(d_out),
+        .d_out(hram_rd),
+        .write(hram_write)
+    );
+
+    reg write_ie, write_if;
+    reg [7:0] ie_rd, if_rd;
+    always_comb begin
+        write = 0; write_ie = 0; write_if = 0;
+        if (~rst) write = 0;
+        else casex (addr)
+            HRAM: begin hram_write = write; d_in = hram_rd; end
+            IE: begin write_ie = write; d_in = ie_rd; end
+            IF: begin write_if = write; d_in = if_rd; end
+            default: begin write = c_t_db == MEM; d_in = d_in_ext; end
+        endcase
+    end
 
     wire [2:0] int_idx;
     wire int_req;
@@ -561,8 +589,13 @@ module sm83(
         .set_ime(c_set_ime),
         .idx(int_idx),
         .req(int_req),
-        .ack(int_ack)
-        // TODO: bus access
+        .ack(int_ack),
+        .ie_out(ie_rd),
+        .if_out(if_rd),
+        .write_ie(write_ie),
+        .write_if(write_if),
+        .ie_in(d_out),
+        .if_in(d_out)
     );
 
     // Sequencer:
@@ -781,4 +814,20 @@ module alu_m (
     end
 
 endmodule
+
+module ram_128words_8bit (
+    input wire clk,
+    input wire ce,
+    input wire [6:0] addr,
+    input wire write,
+    input wire [7:0] d_in,
+    output reg [7:0] d_out
+);
+    reg [7:0] mem[0:127];
+    always_ff @(posedge clk) if (ce) begin
+        d_out <= mem[addr];
+        if (write) mem[addr] <= d_in;
+    end
+endmodule
+
 `default_nettype wire
