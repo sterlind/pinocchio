@@ -77,7 +77,7 @@ module dmg_main(
 
     assign rom_addr = cpu_addr[14:0];
     always_comb begin
-        hram_write = 0; ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0;
+        ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0;
         bus_in = 8'hff;
         casex (cpu_addr)
             VRAM: begin bus_in = vram_d_rd; vram_write = cpu_write; end

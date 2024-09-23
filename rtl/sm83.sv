@@ -447,7 +447,7 @@ module interrupt_controller (
 
     assign ie_out = r_ie, if_out = r_if;
     assign req = ime && |(r_ie & r_if);
-    always_comb case (r_if)
+    always_comb casex (r_if)
         8'bxxxxxxx1: idx = 3'd0;
         8'bxxxxxx10: idx = 3'd1;
         8'bxxxxx100: idx = 3'd2;
@@ -567,13 +567,12 @@ module sm83(
     reg write_ie, write_if;
     reg [7:0] ie_rd, if_rd;
     always_comb begin
-        write = 0; write_ie = 0; write_if = 0;
-        if (~rst) write = 0;
-        else casex (addr)
+        hram_write = 0; write = 0; write_ie = 0; write_if = 0; d_in = d_in_ext;
+        if (rst) casex (addr)
             HRAM: begin hram_write = write; d_in = hram_rd; end
             IE: begin write_ie = write; d_in = ie_rd; end
             IF: begin write_if = write; d_in = if_rd; end
-            default: begin write = c_t_db == MEM; d_in = d_in_ext; end
+            default: write = c_t_db == MEM;
         endcase
     end
 
