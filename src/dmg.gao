@@ -4,21 +4,6 @@
     <Mode>Lite</Mode>
     <AoCore_Lite index="0" sample_clock="tclk" trig_type="0" capture_amount="1024" implemention="0" input_register_enabled="0" capture_init_data_enabled="0" module_name="top">
         <SignalList>
-            <Bus capture_enable="true" name="dmg/cpu/ir[7:0]">
-                <Signal>dmg/cpu/ir[7]</Signal>
-                <Signal>dmg/cpu/ir[6]</Signal>
-                <Signal>dmg/cpu/ir[5]</Signal>
-                <Signal>dmg/cpu/ir[4]</Signal>
-                <Signal>dmg/cpu/ir[3]</Signal>
-                <Signal>dmg/cpu/ir[2]</Signal>
-                <Signal>dmg/cpu/ir[1]</Signal>
-                <Signal>dmg/cpu/ir[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dmg/cpu/step[2:0]">
-                <Signal>dmg/cpu/step[2]</Signal>
-                <Signal>dmg/cpu/step[1]</Signal>
-                <Signal>dmg/cpu/step[0]</Signal>
-            </Bus>
             <Bus capture_enable="true" name="cpu_addr[14:0]">
                 <Signal>cpu_addr[14]</Signal>
                 <Signal>cpu_addr[13]</Signal>
@@ -56,16 +41,6 @@
                 <Signal>dmg/cpu/rf[12][1]</Signal>
                 <Signal>dmg/cpu/rf[12][0]</Signal>
             </Bus>
-            <Bus capture_enable="true" name="dmg/d_in[7:0]">
-                <Signal>dmg/d_in[7]</Signal>
-                <Signal>dmg/d_in[6]</Signal>
-                <Signal>dmg/d_in[5]</Signal>
-                <Signal>dmg/d_in[4]</Signal>
-                <Signal>dmg/d_in[3]</Signal>
-                <Signal>dmg/d_in[2]</Signal>
-                <Signal>dmg/d_in[1]</Signal>
-                <Signal>dmg/d_in[0]</Signal>
-            </Bus>
             <Bus capture_enable="true" name="dmg/d_out[7:0]">
                 <Signal>dmg/d_out[7]</Signal>
                 <Signal>dmg/d_out[6]</Signal>
@@ -76,7 +51,23 @@
                 <Signal>dmg/d_out[1]</Signal>
                 <Signal>dmg/d_out[0]</Signal>
             </Bus>
+            <Bus capture_enable="true" name="dmg/cpu/seq/ir[0:7]">
+                <Signal>dmg/cpu/seq/ir[0]</Signal>
+                <Signal>dmg/cpu/seq/ir[1]</Signal>
+                <Signal>dmg/cpu/seq/ir[2]</Signal>
+                <Signal>dmg/cpu/seq/ir[3]</Signal>
+                <Signal>dmg/cpu/seq/ir[4]</Signal>
+                <Signal>dmg/cpu/seq/ir[5]</Signal>
+                <Signal>dmg/cpu/seq/ir[6]</Signal>
+                <Signal>dmg/cpu/seq/ir[7]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="dmg/cpu/ctrl/step[0:2]">
+                <Signal>dmg/cpu/ctrl/step[0]</Signal>
+                <Signal>dmg/cpu/ctrl/step[1]</Signal>
+                <Signal>dmg/cpu/ctrl/step[2]</Signal>
+            </Bus>
+            <Signal capture_enable="true">dmg/cpu/xint/ime</Signal>
         </SignalList>
     </AoCore_Lite>
-    <GAO_ID>1100100111010111</GAO_ID>
+    <GAO_ID>1011110110000010</GAO_ID>
 </GAO_CONFIG>

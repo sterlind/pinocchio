@@ -207,7 +207,7 @@ module sequencer(
     input wire [7:0] d_in,
     output reg [7:0] ir /* synthesis syn_keep=1 */,
     output reg in_prefix,
-    output reg [2:0] step, /* synthesis syn_preserve=1 */
+    output reg [2:0] step /* synthesis syn_keep=1 */,
     input wire int_req,
     output reg int_ack
 );
@@ -429,7 +429,7 @@ module interrupt_controller (
     input wire clk,
     input wire rst,
     // Interrupt requests in from external:
-    input wire [7:0] irq,
+    input wire [7:0] irq /* synthesis syn_keep=1 */,
     // IME control:
     input wire rst_ime, set_ime,
     // Should we jump to an interrupt handler? Which one?
@@ -441,8 +441,8 @@ module interrupt_controller (
     input wire [7:0] ie_in, if_in,
     input wire write_ie, write_if
 );
-    reg [7:0] r_ie, r_if;
-    reg ime;
+    reg [7:0] r_ie /* synthesis syn_keep=1 */, r_if /* synthesis syn_keep=1 */;
+    reg ime /* synthesis syn_keep=1 */;
 
     assign ie_out = r_ie, if_out = r_if;
     assign req = ime && |(r_ie & r_if);
