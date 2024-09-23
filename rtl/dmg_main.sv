@@ -81,7 +81,7 @@ module dmg_main(
         .oce('x),
         .ce(1'b1),
         .reset(1'b0),
-        .ad(rom_addr),
+        .ad(rom_addr[7:0]),
         .dout(boot_data)
     );
 

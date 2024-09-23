@@ -35,6 +35,7 @@ typedef enum logic [7:0] {
 
     RET_CC      = 8'b110xx000,
     RET         = 8'b11001001,
+    JP_NN       = 8'b11000011,
     CALL_CC_NN  = 8'b110xx100,
     CALL_NN     = 8'b11001101,
 
@@ -345,6 +346,11 @@ module decoder(
 
             {ALU_A_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; s_r_wb = R_WB_ALU; end
+
+            {JP_NN,     3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {JP_NN,     3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
+            {JP_NN,     3'd2}: /* pc <- wz */                           begin ab_mask = AB_ZERO; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
+            {JP_NN,     3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {CALL_NN,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {CALL_NN,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
