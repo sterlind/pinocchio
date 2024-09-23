@@ -609,7 +609,7 @@ module sm83(
         .ir(ir),
         .step(step),
         .in_prefix(in_prefix),
-        .int_req(int_req),
+        .int_req(0),
         .int_ack(int_ack)
     );
 

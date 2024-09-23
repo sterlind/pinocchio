@@ -66,8 +66,7 @@
                 <Signal>dmg/cpu/ctrl/step[1]</Signal>
                 <Signal>dmg/cpu/ctrl/step[2]</Signal>
             </Bus>
-            <Signal capture_enable="true">dmg/cpu/xint/ime</Signal>
         </SignalList>
     </AoCore_Lite>
-    <GAO_ID>1011110110000010</GAO_ID>
+    <GAO_ID>0100001110011101</GAO_ID>
 </GAO_CONFIG>
