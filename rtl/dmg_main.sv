@@ -3,6 +3,7 @@ typedef enum logic [15:0] {
     VRAM    = 16'b100x_xxxx_xxxx_xxxx,
     WRAM    = 16'b110x_xxxx_xxxx_xxxx,
     HRAM    = 16'b1111_1111_1xxx_xxxx,
+    HIDEROM = 16'hff50,
     PPU_REG = 16'hff4x
 } mem_mask;
 
@@ -72,14 +73,29 @@ module dmg_main(
         .write(hram_write)
     );
 
+    reg hide_boot;
+    initial hide_boot = 0;
+    wire [7:0] boot_data;
+    boot_prom boot (
+        .clk(~clk),
+        .oce('x),
+        .ce(1'b1),
+        .reset(1'b0),
+        .ad(rom_addr),
+        .dout(boot_data)
+    );
+
+    always_ff @(negedge clk)
+        hide_boot <= hide_boot | (cpu_addr == HIDEROM && cpu_write && |cpu_d_out);
+
     assign rom_addr = cpu_addr[14:0];
     always_comb begin
         hram_write = 0; ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0;
-        bus_in = 'x;
+        bus_in = 8'hff;
         casex (cpu_addr)
             VRAM: begin bus_in = vram_d_rd; vram_write = cpu_write; end
             HRAM: begin bus_in = hram_d_out; hram_write = cpu_write; end
-            ADDR_ROM: begin bus_in = rom_data; end
+            ADDR_ROM: begin bus_in = (hide_boot || |rom_addr[14:8]) ? rom_data : boot_data; end
             PPU_REG: begin bus_in = reg_d_rd; ppu_reg_write = cpu_write; end
         endcase
     end

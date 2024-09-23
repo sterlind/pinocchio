@@ -398,7 +398,7 @@ module sm83(
     input wire clk,
     input wire ce,
     input wire rst,
-    output reg [15:0] addr,
+    output reg [15:0] addr /* synthesis syn_keep=1 */,
     input wire [7:0] d_in /* synthesis syn_keep=1 */,
     output wire [7:0] d_out /* synthesis syn_keep=1 */,
     output reg write

@@ -9,8 +9,9 @@
         <Process ID="Rtl_Gao" State="2"/>
     </FlowState>
     <ResultFileList>
+        <ResultFile ResultFileType="RES.gao.v" ResultFilePath="impl/gao/gao.v"/>
         <ResultFile ResultFileType="RES.netlist" ResultFilePath="impl/gwsynthesis/dmg.vg"/>
-        <ResultFile ResultFileType="RES.pnr.bitstream" ResultFilePath="impl/pnr/dmg.fs"/>
+        <ResultFile ResultFileType="RES.pnr.bitstream" ResultFilePath="impl/pnr/ao_0.fs"/>
         <ResultFile ResultFileType="RES.pnr.pin.rpt" ResultFilePath="impl/pnr/dmg.pin.html"/>
         <ResultFile ResultFileType="RES.pnr.posp.bin" ResultFilePath="impl/pnr/dmg.db"/>
         <ResultFile ResultFileType="RES.pnr.pwr.rpt" ResultFilePath="impl/pnr/dmg.power.html"/>
