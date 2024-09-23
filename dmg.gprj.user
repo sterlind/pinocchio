@@ -4,12 +4,19 @@
     <Version>1.0</Version>
     <FlowState>
         <Process ID="Synthesis" State="2"/>
-        <Process ID="Pnr" State="0"/>
-        <Process ID="Gao" State="0"/>
+        <Process ID="Pnr" State="2"/>
+        <Process ID="Gao" State="2"/>
         <Process ID="Rtl_Gao" State="2"/>
     </FlowState>
     <ResultFileList>
         <ResultFile ResultFileType="RES.netlist" ResultFilePath="impl/gwsynthesis/dmg.vg"/>
+        <ResultFile ResultFileType="RES.pnr.bitstream" ResultFilePath="impl/pnr/dmg.fs"/>
+        <ResultFile ResultFileType="RES.pnr.pin.rpt" ResultFilePath="impl/pnr/dmg.pin.html"/>
+        <ResultFile ResultFileType="RES.pnr.posp.bin" ResultFilePath="impl/pnr/dmg.db"/>
+        <ResultFile ResultFileType="RES.pnr.pwr.rpt" ResultFilePath="impl/pnr/dmg.power.html"/>
+        <ResultFile ResultFileType="RES.pnr.report" ResultFilePath="impl/pnr/dmg.rpt.html"/>
+        <ResultFile ResultFileType="RES.pnr.timing.paths" ResultFilePath="impl/pnr/dmg.timing_paths"/>
+        <ResultFile ResultFileType="RES.pnr.timing.rpt" ResultFilePath="impl/pnr/dmg.tr.html"/>
         <ResultFile ResultFileType="RES.syn.report" ResultFilePath="impl/gwsynthesis/dmg_syn.rpt.html"/>
         <ResultFile ResultFileType="RES.syn.resource" ResultFilePath="impl/gwsynthesis/dmg_syn_rsc.xml"/>
     </ResultFileList>
