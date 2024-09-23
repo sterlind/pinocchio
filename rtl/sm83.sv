@@ -412,9 +412,15 @@ module interrupts(
     input wire clk,
     input wire rst,
     input wire ce,
+    // Interrupt requests in from external:
+    input wire [7:0] irq,
+    // IME control:
     input wire rst_ime, set_ime,
-    output wire [2:0] irq_idx,
-    output wire irq,
+    // Should we jump to an interrupt handler? Which one?
+    output wire [2:0] jump_idx,
+    output wire should_jump,
+    input wire ack,
+    // Bus access to IE and IF:
     output logic [7:0] ie_out, if_out,
     input wire [7:0] ie_in, if_in,
     input wire write_ie, write_if
@@ -422,10 +428,16 @@ module interrupts(
     reg [7:0] r_ie, r_if;
     reg ime;
 
+    assign ie_out = r_ie, if_out = r_if;
+
     always_ff @(posedge clk or negedge rst)
         if (~rst) begin r_ie <= 0; r_if <= 0; ime <= 0; end
         else if (ce) begin
-            // Todo.
+            if (rst_ime) ime <= 0;
+            else if (set_ime) ime <= 1'b1;
+
+            if (write_ie) r_ie <= ie_in;
+            r_if <= (write_if ? if_in : r_if) | irq;
         end
 endmodule
 
