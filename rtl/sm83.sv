@@ -566,13 +566,17 @@ module sm83(
     reg write_ie, write_if;
     reg [7:0] ie_rd, if_rd;
     always_comb begin
-        hram_write = 0; write = 0; write_ie = 0; write_if = 0; d_in = d_in_ext;
-        if (rst) casex (addr)
-            HRAM: begin hram_write = write; d_in = hram_rd; end
-            IE: begin write_ie = write; d_in = ie_rd; end
-            IF: begin write_if = write; d_in = if_rd; end
-            default: write = c_t_db == MEM;
-        endcase
+        hram_write = 0; write_ie = 0; write_if = 0; d_in = d_in_ext;
+        if (~rst) write = 0;
+        else begin
+            write = c_t_db == MEM;
+            casex (addr)
+                HRAM: begin hram_write = write; d_in = hram_rd; end
+                IE: begin write_ie = write; d_in = ie_rd; end
+                IF: begin write_if = write; d_in = if_rd; end
+                default: d_in = d_in_ext;
+            endcase
+        end
     end
 
     wire [2:0] int_idx;
