@@ -25,6 +25,7 @@ module dmg_main(
 
     reg [1:0] mcycle_ctr;
     reg cpu_ce;
+    initial mcycle_ctr = 2'b0;
     always_ff @(posedge clk) mcycle_ctr <= mcycle_ctr + 1'b1;
     assign cpu_ce = &mcycle_ctr;
 
