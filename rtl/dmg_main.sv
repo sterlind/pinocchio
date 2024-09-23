@@ -29,6 +29,10 @@ module dmg_main(
     always_ff @(posedge clk) mcycle_ctr <= mcycle_ctr + 1'b1;
     assign cpu_ce = &mcycle_ctr;
 
+    wire irq_vblank;
+    reg [7:0] irq;
+    assign irq = {7'b0, irq_vblank};
+
     reg [7:0] bus_in, cpu_d_out;
     wire [15:0] cpu_addr /* synthesis syn_keep=1 */;
     wire cpu_write;
@@ -39,7 +43,8 @@ module dmg_main(
         .d_in_ext(bus_in),
         .addr(cpu_addr),
         .d_out(cpu_d_out),
-        .write(cpu_write)
+        .write(cpu_write),
+        .irq_in(irq)
     );
 
     reg ppu_reg_write, vram_write;
@@ -57,7 +62,8 @@ module dmg_main(
         .lcd_hsync(lcd_hsync),
         .lcd_vsync(lcd_vsync),
         .lcd_pixel(lcd_pixel),
-        .lcd_color(lcd_color)
+        .lcd_color(lcd_color),
+        .irq_vblank(irq_vblank)
     );
 
     reg hide_boot;

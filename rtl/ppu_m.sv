@@ -40,7 +40,9 @@ module ppu_m (
     input wire vram_write_in,
     // Display:
     output wire lcd_hsync, lcd_vsync, lcd_pixel,
-    output wire [1:0] lcd_color
+    output wire [1:0] lcd_color,
+    // IRQ:
+    output logic irq_vblank
 );
     reg mem_clk;
     assign mem_clk = ~clk;
@@ -61,7 +63,7 @@ module ppu_m (
         SCX: scx = reg_d_wr;
     endcase
 
-    ppu_phase_t phase;
+    ppu_phase_t phase, phase_prev;
     wire [12:0] renderer_vram_addr;
     wire [7:0] renderer_ly;
     wire renderer_pixel_valid;
@@ -101,6 +103,9 @@ module ppu_m (
         .ad(vram_addr),
         .din(vram_d_wr)
     );
+
+    always_ff @(posedge clk) phase_prev <= phase;
+    assign irq_vblank = phase_prev != phase && phase == PHASE_VBLANK;
 
     always_comb case (phase)
         PHASE_DRAW: begin vram_addr = renderer_vram_addr; vram_write = 0; end

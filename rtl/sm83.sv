@@ -428,7 +428,6 @@ endmodule
 module interrupt_controller (
     input wire clk,
     input wire rst,
-    input wire ce,
     // Interrupt requests in from external:
     input wire [7:0] irq,
     // IME control:
@@ -461,7 +460,7 @@ module interrupt_controller (
 
     always_ff @(negedge clk or negedge rst)
         if (~rst) begin r_ie <= 0; r_if <= 0; ime <= 0; end
-        else if (ce) begin
+        else begin
             if (rst_ime || ack) ime <= 0;
             else if (set_ime) ime <= 1'b1;
 
@@ -582,7 +581,6 @@ module sm83(
     interrupt_controller xint (
         .clk(clk),
         .rst(rst),
-        .ce(ce),
         .irq(irq_in),
         .rst_ime(c_rst_ime),
         .set_ime(c_set_ime),
