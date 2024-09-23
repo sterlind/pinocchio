@@ -408,6 +408,27 @@ module decoder(
     end
 endmodule
 
+module interrupts(
+    input wire clk,
+    input wire rst,
+    input wire ce,
+    input wire rst_ime, set_ime,
+    output wire [2:0] irq_idx,
+    output wire irq,
+    output logic [7:0] ie_out, if_out,
+    input wire [7:0] ie_in, if_in,
+    input wire write_ie, write_if
+);
+    reg [7:0] r_ie, r_if;
+    reg ime;
+
+    always_ff @(posedge clk or negedge rst)
+        if (~rst) begin r_ie <= 0; r_if <= 0; ime <= 0; end
+        else if (ce) begin
+            // Todo.
+        end
+endmodule
+
 module sm83(
     input wire clk,
     input wire ce,
@@ -434,8 +455,8 @@ module sm83(
     cond_t c_cond;
     reg16_t c_s_ab;
     ab_mask_t c_ab_mask;
-    reg8_t c_s_db /* synthesis syn_keep=1 */;
-    reg8_t c_t_db /* synthesis syn_keep=1 */;
+    reg8_t c_s_db;
+    reg8_t c_t_db;
     s_r_wb_t c_s_r_wb;
     logic [2:0] c_alu_op;
     logic [1:0] c_sru_mode;
