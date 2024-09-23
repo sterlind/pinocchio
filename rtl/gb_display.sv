@@ -72,7 +72,7 @@ module gb_display(
         2'b11: vga_color = 16'hffff;
     endcase
 
-    assign {r, g, b} = (vga_addr_valid & (|fb_out)) ? vga_color : 16'b0;
+    assign {r, g, b} = (vga_addr_valid & (|fb_out)) ? /*vga_color*/16'hffff : 16'b0;
 endmodule
 
 module ppu_timer (
