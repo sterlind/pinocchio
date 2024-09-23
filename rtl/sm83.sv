@@ -1,3 +1,4 @@
+`default_nettype none
 typedef enum logic [7:0] {
     // Block 0:
     NOP         = 8'b00000000,
@@ -51,7 +52,10 @@ typedef enum logic [7:0] {
     LD_NN_A     = 8'b11101010,
 
     DI          = 8'b11110011,
-    EI          = 8'b11111011
+    EI          = 8'b11111011,
+
+    // Internal:
+    IRQ         = 8'hd3
 } opcode_t;
 
 typedef enum logic [7:0] {
@@ -137,7 +141,7 @@ typedef enum logic [1:0] {
 } s_r_wb_t;
 
 typedef enum logic [1:0] {
-    RR_WB_NONE, RR_WB_IDU, RR_WB_WZ
+    RR_WB_NONE, RR_WB_IDU, RR_WB_WZ, RR_WB_IRQ
 } s_rr_wb_t;
 
 typedef enum logic [1:0] {
@@ -203,7 +207,9 @@ module sequencer(
     input wire [7:0] d_in,
     output reg [7:0] ir /* synthesis syn_keep=1 */,
     output reg in_prefix,
-    output reg [2:0] step /* synthesis syn_preserve=1 */
+    output reg [2:0] step, /* synthesis syn_preserve=1 */
+    input wire int_req,
+    output reg int_ack
 );
     reg matched;
     always @(*) case(cond)
@@ -216,7 +222,12 @@ module sequencer(
     always_ff @(posedge clk or negedge rst) begin
         if (~rst) begin step <= 0; ir = 8'b0; in_prefix <= 0; end
         else if (ce)
-            if (done) begin step <= 0; ir <= d_in; in_prefix <= 0; end
+            if (done) begin
+                step <= 0;
+                ir <= int_req ? IRQ : d_in;
+                in_prefix <= 0;
+                int_ack <= int_req;
+            end
             else if (ir == PREFIX) begin ir <= d_in; in_prefix <= 1; end
             else if (is_cond && !matched) step <= next_cond;
             else step <= step + 1'b1;
@@ -403,12 +414,18 @@ module decoder(
 
             {DI,        3'd0}: /* ime <- 0; inc pc; done */             begin done = 1; rst_ime = 1; idu = INC; s_ab = PC; wr_pc = 1; end
             {EI,        3'd0}: /* ime <- 1; inc pc; done */             begin done = 1; set_ime = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {IRQ,       3'd0}: /* dec pc */                             begin idu = DEC; s_ab = PC; wr_pc = 1; end
+            {IRQ,       3'd1}: /* dec sp */                             begin idu = DEC; s_ab = R16_SP; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {IRQ,       3'd2}: /* [sp] <- pch; dec sp */                begin s_ab = R16_SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {IRQ,       3'd3}: /* [sp] <- pcl; pc <- irq */             begin s_ab = R16_SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_IRQ; t_rr_wb = PC; end
+            {IRQ,       3'd4}: /* fetch pc, done */                     begin s_ab = PC; done = 1; end
             //default: $error("Bad opcode, step (%h, %d)", opcode, step);
         endcase
     end
 endmodule
 
-module interrupts(
+module interrupt_controller (
     input wire clk,
     input wire rst,
     input wire ce,
@@ -417,8 +434,8 @@ module interrupts(
     // IME control:
     input wire rst_ime, set_ime,
     // Should we jump to an interrupt handler? Which one?
-    output wire [2:0] jump_idx,
-    output wire should_jump,
+    output logic [2:0] idx,
+    output logic req,
     input wire ack,
     // Bus access to IE and IF:
     output logic [7:0] ie_out, if_out,
@@ -429,15 +446,28 @@ module interrupts(
     reg ime;
 
     assign ie_out = r_ie, if_out = r_if;
+    assign req = ime && |(r_ie & r_if);
+    always_comb case (r_if)
+        8'bxxxxxxx1: idx = 3'd0;
+        8'bxxxxxx10: idx = 3'd1;
+        8'bxxxxx100: idx = 3'd2;
+        8'bxxxx1000: idx = 3'd3;
+        8'bxxx10000: idx = 3'd4;
+        8'bxx100000: idx = 3'd5;
+        8'bx1000000: idx = 3'd6;
+        8'b10000000: idx = 3'd7;
+        default: idx = 3'd0;
+    endcase
 
     always_ff @(posedge clk or negedge rst)
         if (~rst) begin r_ie <= 0; r_if <= 0; ime <= 0; end
         else if (ce) begin
-            if (rst_ime) ime <= 0;
+            if (rst_ime || ack) ime <= 0;
             else if (set_ime) ime <= 1'b1;
 
             if (write_ie) r_ie <= ie_in;
-            r_if <= (write_if ? if_in : r_if) | irq;
+            if (write_if) r_if <= if_in;
+            else r_if <= (r_if & (ack ? ~(1'b1 << idx) : 8'hff)) | irq;
         end
 endmodule
 
@@ -445,6 +475,7 @@ module sm83(
     input wire clk,
     input wire ce,
     input wire rst,
+    input wire [7:0] irq_in,
     output reg [15:0] addr /* synthesis syn_keep=1 */,
     input wire [7:0] d_in /* synthesis syn_keep=1 */,
     output wire [7:0] d_out /* synthesis syn_keep=1 */,
@@ -518,6 +549,22 @@ module sm83(
             write = c_t_db == MEM;
         end
 
+    wire [2:0] int_idx;
+    wire int_req;
+    wire int_ack;
+    interrupt_controller xint (
+        .clk(clk),
+        .rst(rst),
+        .ce(ce),
+        .irq(irq_in),
+        .rst_ime(c_rst_ime),
+        .set_ime(c_set_ime),
+        .idx(int_idx),
+        .req(int_req),
+        .ack(int_ack)
+        // TODO: bus access
+    );
+
     // Sequencer:
     sequencer seq (
         .clk(clk),
@@ -531,7 +578,9 @@ module sm83(
         .d_in(d_in),
         .ir(ir),
         .step(step),
-        .in_prefix(in_prefix)
+        .in_prefix(in_prefix),
+        .int_req(int_req),
+        .int_ack(int_ack)
     );
 
     // IDU:
@@ -646,6 +695,7 @@ module sm83(
         case (c_s_rr_wb)
             RR_WB_IDU: rr_wb = idu_res;
             RR_WB_WZ: rr_wb = {rf[W], rf[Z]};
+            RR_WB_IRQ : rr_wb = {8'b0, 2'b01, int_idx, 3'b0};
             default: rr_wb = 16'hxx;
         endcase
 
@@ -731,3 +781,4 @@ module alu_m (
     end
 
 endmodule
+`default_nettype wire
