@@ -132,7 +132,7 @@ typedef enum logic [3:0] {
 `define MAX_REG8 A 
 
 typedef enum logic [2:0] {
-    ACC_A, ACC_DB, ACC_SPL, ACC_SPH, ACC_PCL
+    ACC_A, ACC_DB, ACC_SPL, ACC_SPH, ACC_PCL, ACC_H, ACC_L
 } s_acc_t;
 
 typedef enum logic [1:0] {
@@ -191,8 +191,8 @@ module r16m_decoder(
     output s_rr_wb_t s_rr_wb
 );
     always @(*) case (r16)
-        2'd0: {s_ab, idu, s_rr_wb} = {BC, idu_mode_t'('x), RR_WB_NONE};
-        2'd1: {s_ab, idu, s_rr_wb} = {DE, idu_mode_t'('x), RR_WB_NONE};
+        2'd0: {s_ab, idu, s_rr_wb} = {BC, INC, RR_WB_NONE};
+        2'd1: {s_ab, idu, s_rr_wb} = {DE, INC, RR_WB_NONE};
         2'd2: {s_ab, idu, s_rr_wb} = {HL, INC, RR_WB_IDU};
         2'd3: {s_ab, idu, s_rr_wb} = {HL, DEC, RR_WB_IDU};
     endcase
@@ -293,7 +293,7 @@ module decoder(
         s_arg = ARG_DB; idu = INC; alu_op = f_alu_op; s_acc = ACC_A; s_rr_wb = RR_WB_NONE; t_rr_wb = REG16_ANY; t_db = NONE;
         s_ab = REG16_ANY;
         s_db = NONE;
-        next_cond = 'x;
+        next_cond = 0;
         set_ime = 0; rst_ime = 0;
 
         if (in_prefix) casex ({opcode, step})
@@ -323,8 +323,8 @@ module decoder(
             {INCDEC_RR, 3'd0}: /* inc/dec r16 */                        begin s_ab = r16; if (f_inc_rr) idu = DEC; else idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = r16; end
             {INCDEC_RR, 3'd1}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
-            {ADD_HL_RR, 3'd0}: /* l <- add(l, r16l) */                  begin s_db = r16l; t_db = L; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; end
-            {ADD_HL_RR, 3'd1}: /* h <- adc(h, r16h); inc pc; done */    begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r16h; t_db = H; s_r_wb = R_WB_ALU; alu_op = ALU_ADC; end 
+            {ADD_HL_RR, 3'd0}: /* l <- add(l, r16l) */                  begin s_db = r16l; t_db = L; s_acc = ACC_L; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; end
+            {ADD_HL_RR, 3'd1}: /* h <- adc(h, r16h); inc pc; done */    begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r16h; t_db = H; s_r_wb = R_WB_ALU; alu_op = ALU_ADC; s_acc = ACC_H; end 
 
             {INCDEC_HL, 3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
             {INCDEC_HL, 3'd1}: /* [hl] <- z +/- 1 */                    begin s_ab = HL; s_db = Z; t_db = MEM; s_r_wb = R_WB_ALU; s_arg = ARG_ONE; if (f_inc_r) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
@@ -340,7 +340,7 @@ module decoder(
             {LD_R_N,    3'd1}: /* r8_dst <- z; inc pc; done */          begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = r8_dst; end       
 
             {RLA,       3'd0}: /* a <- sru(rl, a); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = A; t_db = A; alu_op = SRU_RL; end
-            {CPL,       3'd0}: /* a <- xor(a, ff); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_ALU; s_arg = ARG_FF; t_db = A; alu_op = ALU_XOR; end
+            {CPL,       3'd0}: /* a <- xor(a, ff); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_ALU; s_arg = ARG_FF; alu_op = ALU_XOR; end
 
             {JR_E,      3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {JR_E,      3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PC; ab_mask = AB_MASK_AND_FF00; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
@@ -682,13 +682,15 @@ module sm83(
             ACC_SPL: acc = rf[SPL];
             ACC_SPH: acc = rf[SPH];
             ACC_PCL: acc = rf[PCL];
-            default: acc = 'x;
+            ACC_H: acc = rf[H];
+            ACC_L: acc = rf[L];
+            default: acc = db;
         endcase
         case (c_s_arg)
             ARG_DB: arg = db;
             ARG_ONE: arg = 8'd1;
             ARG_FF: arg = 8'hff;
-            default: arg = 'x;
+            default: arg = db;
         endcase
     end
 
@@ -736,7 +738,7 @@ module sm83(
             HL: ab = {rf[H], rf[L]};
             R16_SP: ab = {rf[SPH], rf[SPL]};
             PC: ab = {rf[PCH], rf[PCL]};
-            default: ab = 'x;
+            default: ab = 16'b0;
         endcase
 
         case (c_s_rr_wb)
@@ -791,7 +793,7 @@ module sru_m (
                 default: {c_out, res} = {1'bx, in};
             endcase
         end
-        default: {c_out, res} = 'x;
+        default: {c_out, res} = '0;
     endcase
 endmodule
 
