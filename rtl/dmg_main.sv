@@ -67,6 +67,19 @@ module dmg_main(
         .irq_vblank(irq_vblank)
     );
 
+    wire [7:0] wram_d_rd;
+    reg wram_write;
+    work_spram wram(
+        .dout(wram_d_rd),
+        .clk(~clk),
+        .oce(1'b0),
+        .ce(cpu_ce),
+        .reset(~rst),
+        .wre(wram_write),
+        .ad(cpu_addr[12:0]),
+        .din(cpu_d_out)
+    );
+
     reg hide_boot;
     wire [7:0] boot_data;
     boot_prom boot (
@@ -84,10 +97,11 @@ module dmg_main(
 
     assign rom_addr = cpu_addr[14:0];
     always_comb begin
-        ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0;
+        ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0; wram_write = 0;
         bus_in = 8'hff;
         casex (cpu_addr)
             VRAM: begin bus_in = vram_d_rd; vram_write = cpu_write; end
+            WRAM: begin bus_in = wram_d_rd; wram_write = cpu_write; end
             ADDR_ROM: begin bus_in = (hide_boot || |rom_addr[14:8]) ? rom_data : boot_data; end
             PPU_REG: begin bus_in = reg_d_rd; ppu_reg_write = cpu_write; end
         endcase

@@ -18,6 +18,7 @@
         <File path="rtl/ram.sv" type="file.verilog" enable="1"/>
         <File path="rtl/sm83.sv" type="file.verilog" enable="1"/>
         <File path="rtl/top.sv" type="file.verilog" enable="1"/>
+        <File path="src/gowin_sp/work_spram.v" type="file.verilog" enable="1"/>
         <File path="dmg.cst" type="file.cst" enable="1"/>
         <File path="dmg.sdc" type="file.sdc" enable="1"/>
         <File path="src/dmg.gao" type="file.gao" enable="1"/>
