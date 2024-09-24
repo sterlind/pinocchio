@@ -11,6 +11,7 @@
         <File path="rtl/blocks/gclkdiv4.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/sp_8192w_8b.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/tclk_pll.v" type="file.verilog" enable="1"/>
+        <File path="rtl/debounce.v" type="file.verilog" enable="1"/>
         <File path="rtl/dmg_main.sv" type="file.verilog" enable="1"/>
         <File path="rtl/gb_display.sv" type="file.verilog" enable="1"/>
         <File path="rtl/ppu_m.sv" type="file.verilog" enable="1"/>

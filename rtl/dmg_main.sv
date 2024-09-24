@@ -25,8 +25,9 @@ module dmg_main(
 
     reg [1:0] mcycle_ctr;
     reg cpu_ce;
-    initial mcycle_ctr = 2'b0;
-    always_ff @(posedge clk) mcycle_ctr <= mcycle_ctr + 1'b1;
+    always_ff @(posedge clk)
+        if (~rst) mcycle_ctr <= 2'b0;
+        else mcycle_ctr <= mcycle_ctr + 1'b1;
     assign cpu_ce = &mcycle_ctr;
 
     wire irq_vblank;
@@ -67,7 +68,6 @@ module dmg_main(
     );
 
     reg hide_boot;
-    initial hide_boot = 0;
     wire [7:0] boot_data;
     boot_prom boot (
         .clk(~clk),
@@ -79,7 +79,8 @@ module dmg_main(
     );
 
     always_ff @(negedge clk)
-        hide_boot <= hide_boot | (cpu_addr == HIDEROM && cpu_write && |cpu_d_out);
+        if (~rst) hide_boot <= 0;
+        else if (cpu_addr == HIDEROM && cpu_write && |cpu_d_out) hide_boot <= 1'b1;
 
     assign rom_addr = cpu_addr[14:0];
     always_comb begin

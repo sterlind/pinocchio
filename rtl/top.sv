@@ -8,26 +8,20 @@ module top(
     reg tclk;
     tclk_pll pll(.clkin(clk_27m), .clkout(tclk));
 
-    reg led_sig;
-    assign led_sig = btn_rst;
-    assign status_led = led_sig;
-    reg rst;
-    initial rst = 0;
-    reg nrst;
+    wire rst_trig;
     reg [3:0] rst_ctr;
-    always_ff @(posedge tclk) begin
-        if (rst) rst_ctr <= 4'b0000;
-        if (~&rst_ctr) rst_ctr <= rst_ctr + 1'b1;
-    end
+    initial rst_ctr = 0;
+    reg nrst;
     assign nrst = &rst_ctr;
+    always_ff @(posedge tclk)
+        if (rst_trig) rst_ctr <= 1'b0;
+        else if (~nrst) rst_ctr <= rst_ctr + 1'b1;
 
-/*
     debounce rst_debounce (
         .clk(tclk),
         .d(btn_rst),
-        .q_fall(rst)
+        .q_fall(rst_trig)
     );
-    */
 
     wire [14:0] rom_addr;
     wire [7:0] rom_data;

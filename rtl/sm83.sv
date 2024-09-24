@@ -219,7 +219,7 @@ module sequencer(
         COND_C: matched = flags.f_c;
     endcase
 
-    always_ff @(posedge clk or negedge rst) begin
+    always_ff @(posedge clk) begin
         if (~rst) begin step <= 0; ir = 8'b0; in_prefix <= 0; end
         else if (ce)
             if (done) begin
@@ -458,7 +458,7 @@ module interrupt_controller (
         default: idx = 3'd0;
     endcase
 
-    always_ff @(negedge clk or negedge rst)
+    always_ff @(negedge clk)
         if (~rst) begin r_ie <= 0; r_if <= 0; ime <= 0; end
         else begin
             if (rst_ime || ack) ime <= 0;
@@ -544,7 +544,7 @@ module sm83(
     );
 
     always_comb
-        if (!rst) addr = 16'b0;
+        if (~rst) addr = 16'b0;
         else case (c_ab_mask)
             AB_ZERO: addr = 16'b0;
             AB_NO_MASK: addr = ab;
@@ -684,7 +684,7 @@ module sm83(
     reg [7:0] r_wb;
     flags_t f_out;
 
-    always_ff @(posedge clk or negedge rst) begin
+    always_ff @(posedge clk) begin
         if (~rst) begin
             for (int k = `MIN_REG8; k < `MAX_REG8 + 1; k = k + 1)
                 rf[k] <= 0;
