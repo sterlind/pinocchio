@@ -18,6 +18,7 @@ typedef enum logic [7:0] {
     LD_R_N      = 8'b00xxx110,
 
     RLA         = 8'b00010111,
+    CPL         = 8'b00101111,
 
     JR_E        = 8'b00011000,
     JR_CC_E     = 8'b001xx000,
@@ -132,8 +133,8 @@ typedef enum logic [2:0] {
     ACC_A, ACC_DB, ACC_SPL, ACC_SPH, ACC_PCL
 } s_acc_t;
 
-typedef enum logic {
-    ARG_DB, ARG_ONE
+typedef enum logic [1:0] {
+    ARG_DB, ARG_ONE, ARG_FF
 } s_arg_t;
 
 typedef enum logic [1:0] {
@@ -324,7 +325,7 @@ module decoder(
             {ADD_HL_RR, 3'd1}: /* h <- adc(h, r16h); inc pc; done */    begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = r16h; t_db = H; s_r_wb = R_WB_ALU; alu_op = ALU_ADC; end 
 
             {INCDEC_HL, 3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
-            {INCDEC_HL, 3'd1}: /* [hl] <- add(z, 1) */                  begin s_ab = HL; s_db = Z; t_db = MEM; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_arg = ARG_ONE; end
+            {INCDEC_HL, 3'd1}: /* [hl] <- z +/- 1 */                    begin s_ab = HL; s_db = Z; t_db = MEM; s_r_wb = R_WB_ALU; s_arg = ARG_ONE; if (f_inc_r) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
             {INCDEC_HL, 3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {INCDEC_R,  3'd0}: /* r8_d <- r8_d +/- 1; inc pc; done */   begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_acc = ACC_DB; s_arg = ARG_ONE; s_db = r8_dst; t_db = r8_dst; s_r_wb = R_WB_ALU; if (f_inc_r) alu_op = ALU_SUB; else alu_op = ALU_ADD; end
@@ -337,6 +338,7 @@ module decoder(
             {LD_R_N,    3'd1}: /* r8_dst <- z; inc pc; done */          begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = r8_dst; end       
 
             {RLA,       3'd0}: /* a <- sru(rl, a); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = A; t_db = A; alu_op = SRU_RL; end
+            {CPL,       3'd0}: /* a <- xor(a, ff); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_ALU; s_arg = ARG_FF; t_db = A; alu_op = ALU_XOR; end
 
             {JR_E,      3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {JR_E,      3'd1}: /* z <- pcl + z; w <- adj pch */         begin s_ab = PC; ab_mask = AB_MASK_AND_FF00; idu = ADJ; s_db = Z; t_db = Z; s_r_wb = R_WB_ALU; alu_op = ALU_ADD; s_acc = ACC_PCL; s_arg = ARG_DB; s_rr_wb = RR_WB_IDU; t_rr_wb = WZ; end
@@ -676,6 +678,8 @@ module sm83(
         case (c_s_arg)
             ARG_DB: arg = db;
             ARG_ONE: arg = 8'd1;
+            ARG_FF: arg = 8'hff;
+            default: arg = 'x;
         endcase
     end
 
