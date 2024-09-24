@@ -486,7 +486,7 @@ module sm83(
     output wire [7:0] d_out /* synthesis syn_keep=1 */,
     output reg write
 );
-    reg [15:0] ab;
+    reg [15:0] ab /* synthesis syn_keep=1*/;
     reg [7:0] db;
     reg [7:0] rf /* synthesis syn_keep=1 */ [`MIN_REG8:`MAX_REG8];
     flags_t flags;
