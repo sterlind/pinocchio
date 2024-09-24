@@ -27,7 +27,7 @@ module top(
     wire [7:0] rom_data;
     cart_prom cart (
         .clk(tclk),
-        .oce('x),
+        .oce(1'b0),
         .ce(1'b1),
         .reset(1'b0),
         .ad(rom_addr),

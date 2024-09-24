@@ -488,7 +488,7 @@ module sm83(
 );
     reg [15:0] ab /* synthesis syn_keep=1*/;
     reg [7:0] db;
-    reg [7:0] rf /* synthesis syn_keep=1 */ [`MIN_REG8:`MAX_REG8];
+    reg [7:0] rf /* synthesis syn_preserve=1 */ [`MIN_REG8:`MAX_REG8];
     flags_t flags;
 
     reg [7:0] d_in;
