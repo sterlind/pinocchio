@@ -38,8 +38,10 @@ typedef enum logic [7:0] {
     RET_CC      = 8'b110xx000,
     RET         = 8'b11001001,
     JP_NN       = 8'b11000011,
+    JP_HL       = 8'b11101001,
     CALL_CC_NN  = 8'b110xx100,
     CALL_NN     = 8'b11001101,
+    RST_N       = 8'b11xxx111,
 
     POP_R16S    = 8'b11xx0001,
     PUSH_R16S   = 8'b11xx0101,
@@ -141,8 +143,8 @@ typedef enum logic [1:0] {
     R_WB_DB, R_WB_ALU, R_WB_SRU
 } s_r_wb_t;
 
-typedef enum logic [1:0] {
-    RR_WB_NONE, RR_WB_IDU, RR_WB_WZ, RR_WB_IRQ
+typedef enum logic [2:0] {
+    RR_WB_NONE, RR_WB_IDU, RR_WB_WZ, RR_WB_IRQ, RR_WB_TGT
 } s_rr_wb_t;
 
 typedef enum logic [1:0] {
@@ -370,12 +372,19 @@ module decoder(
             {JP_NN,     3'd2}: /* pc <- wz */                           begin ab_mask = AB_ZERO; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
             {JP_NN,     3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
+            {JP_HL,     3'd0}: /* pc <- inc hl; done */                 begin done = 1; idu = INC; s_ab = HL; wr_pc = 1; end
+
             {CALL_NN,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {CALL_NN,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {CALL_NN,   3'd2}: /* dec sp */                             begin idu = DEC; s_ab = R16_SP; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {CALL_NN,   3'd3}: /* [sp] <- pch; dec sp */                begin s_ab = R16_SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {CALL_NN,   3'd4}: /* [sp] <- pcl; pc <- wz */              begin s_ab = R16_SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
             {CALL_NN,   3'd5}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {RST_N,     3'd0}: /* dec sp */                             begin idu = DEC; s_ab = R16_SP; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {RST_N,     3'd1}: /* [sp] <- pch; dec sp */                begin s_ab = R16_SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {RST_N,     3'd2}: /* [sp] <- pcl; pc <- tgt */             begin s_ab = R16_SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_TGT; t_rr_wb = PC; end
+            {RST_N,     3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {RET,       3'd0}: /* z <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {RET,       3'd1}: /* w <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
@@ -734,6 +743,7 @@ module sm83(
             RR_WB_IDU: rr_wb = idu_res;
             RR_WB_WZ: rr_wb = {rf[W], rf[Z]};
             RR_WB_IRQ : rr_wb = {8'b0, 2'b01, int_idx, 3'b0};
+            RR_WB_TGT: rr_wb = {10'b0, c_idx, 3'b0};
             default: rr_wb = 16'hxx;
         endcase
 
