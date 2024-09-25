@@ -37,8 +37,8 @@ module gb_display(
         .addr(ppu_addr_write)
     );
     fb_addr_encoder vga_addr_enc (
-        .x(vga_x),
-        .y(vga_y),
+        .x(vga_x >> 1),
+        .y(vga_y >> 1),
         .valid(vga_addr_valid),
         .addr(vga_addr_read)
     );
@@ -51,12 +51,12 @@ module gb_display(
         .clka(tclk),
         .ocea(1'b0),
         .cea(1'b1),
-        .reseta(1'b0),
+        .reseta(~rst),
         .wrea(ppu_de),
         .clkb(dclk),
         .oceb(1'b0),
         .ceb(1'b1),
-        .resetb(1'b0),
+        .resetb(~rst),
         .wreb(1'b0),
         .ada(ppu_addr_write),
         .dina(ppu_color),
