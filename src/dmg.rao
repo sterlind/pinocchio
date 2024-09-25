@@ -23,8 +23,6 @@
                 <Signal>dmg/cpu/ctrl/idu[1]</Signal>
                 <Signal>dmg/cpu/ctrl/idu[0]</Signal>
             </Bus>
-            <Signal capture_enable="true">dmg/cpu/idu_inc</Signal>
-            <Signal capture_enable="true">dmg/cpu/idu_bypass</Signal>
             <Signal capture_enable="true">dmg/cpu/alu_f_out.f_z</Signal>
             <Signal capture_enable="true">dmg/cpu/alu_f_out.f_n</Signal>
             <Signal capture_enable="true">dmg/cpu/alu_f_out.f_h</Signal>
@@ -152,5 +150,5 @@
             <Expression>M0</Expression>
         </Expressions>
     </AoCore>
-    <GAO_ID>1001001011000011</GAO_ID>
+    <GAO_ID>1111111011111001</GAO_ID>
 </GAO_CONFIG>

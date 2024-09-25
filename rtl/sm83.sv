@@ -647,30 +647,13 @@ module sm83(
     );
 
     // IDU:
-    reg idu_inc, idu_bypass;
-    reg [1:0] adj_bits;
-    assign adj_bits = {rf[Z][7], f_out.f_c};
     wire [15:0] idu_res;
     idu_m idu (
         .ab(addr),
-        .inc(idu_inc),
-        .bypass(idu_bypass),
+        .mode(c_idu),
+        .adj_bits({rf[Z][7],f_out.f_c}),
         .res(idu_res)
     );
-    always_comb begin
-        idu_bypass = 0; idu_inc = 1;
-        case (c_idu)
-            INC: idu_inc = 1;
-            DEC: idu_inc = 0;
-            ADJ: begin
-                case (adj_bits)
-                    2'b01: idu_inc = 1;
-                    2'b10: idu_inc = 0;
-                    default: idu_bypass = 1;
-                endcase
-            end
-        endcase
-    end
 
     // ALU:
     reg [7:0] arg, acc, alu_res, sru_res;
@@ -777,13 +760,21 @@ endmodule
 
 module idu_m (
     input wire [15:0] ab,
-    input wire inc,
-    input wire bypass,
+    input wire idu_mode_t mode,
+    input wire [1:0] adj_bits,
     output logic [15:0] res
 );
     always_comb
-        if (bypass) res = ab;
-        else if (inc) res = ab + 1'b1; else res = ab - 1'b1;
+        case (mode)
+            INC: res = ab + 1'b1;
+            DEC: res = ab - 1'b1;
+            ADJ: case (adj_bits)
+                2'b01: res = {ab[15:8] + 1'b1, ab[7:0]};
+                2'b10: res = {ab[15:8] - 1'b1, ab[7:0]};
+                default: res = ab;
+            endcase
+            default: res = ab;
+        endcase
 endmodule
 
 module sru_m (
