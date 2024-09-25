@@ -172,6 +172,7 @@ module ppu_renderer(
         .clk(clk),
         .vram_addr(vram_addr),
         .vram_in(vram_in),
+        .next_block(|lx | pixel_valid),
         .ly(ly),
         .lx(lx),
         .lcdc(lcdc),
@@ -264,13 +265,14 @@ module pixel_fetcher (
     input wire [7:0] ly, lx,
     input lcdc_t lcdc,
     input byte scx, scy,
+    input wire next_block,
     output reg [12:0] vram_addr,
     input wire [7:0] vram_in,
     output reg [7:0] pix_hi, pix_lo,
     output reg full
 );
     reg [7:0] px, py;
-    assign py = ly + scy, px = lx + scx;
+    assign py = ly + scy, px = lx + scx + (next_block ? 8'd8 : 8'd0);
 
     reg [7:0] tile_id, data_low, data_high;
 
