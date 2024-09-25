@@ -649,7 +649,7 @@ module sm83(
     // IDU:
     reg idu_inc, idu_bypass;
     reg [1:0] adj_bits;
-    assign adj_bits = {f_out.f_z, f_out.f_c};
+    assign adj_bits = {rf[Z][7], f_out.f_c};
     wire [15:0] idu_res;
     idu_m idu (
         .ab(addr),
