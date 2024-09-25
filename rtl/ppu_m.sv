@@ -12,7 +12,8 @@ typedef enum logic [3:0] {
     STAT    = 4'h1,
     SCY     = 4'h2,
     SCX     = 4'h3,
-    LY      = 4'h4
+    LY      = 4'h4,
+    BGP     = 4'h7
 } ppu_reg_t;
 
 typedef struct packed {
@@ -49,18 +50,20 @@ module ppu_m (
     
     // Regs:
     lcdc_t lcdc;
-    reg [7:0] scy, scx;
+    reg [7:0] scy, scx, bgp;
     always_comb case (reg_addr)
         LCDC: reg_d_rd = lcdc;
         SCY: reg_d_rd = scy;
         SCX: reg_d_rd = scx;
         LY: reg_d_rd = renderer_ly;
+        BGP: reg_d_rd = bgp;
         default: reg_d_rd = 'x;
     endcase
     always_ff @(posedge clk) if (reg_write) case (ppu_reg_t'(reg_addr))
         LCDC: lcdc = reg_d_wr;
         SCY: scy = reg_d_wr;
         SCX: scx = reg_d_wr;
+        BGP: bgp = reg_d_wr;
     endcase
 
     ppu_phase_t phase, phase_prev;
@@ -76,6 +79,7 @@ module ppu_m (
         .scy(scy),
         .scx(scx),
         .ly(renderer_ly),
+        .bgp(bgp),
         .phase(phase),
         .pixel_valid(renderer_pixel_valid),
         .pixel(renderer_pixel)
@@ -84,16 +88,8 @@ module ppu_m (
     // VRAM:
     reg [12:0] vram_addr;
     reg vram_write;
-/*
-    ram_8192words_8bit vram (
-        .clk(mem_clk),
-        .addr(vram_addr),
-        .write(vram_write),
-        .d_in(vram_d_wr),
-        .d_out(vram_d_rd)
-    );
-*/
-    sp_8192w_8b your_instance_name(
+
+    sp_8192w_8b vram_block (
         .dout(vram_d_rd),
         .clk(~clk),
         .oce(1'b0),
@@ -126,6 +122,7 @@ module ppu_renderer(
     // Regs:
     input lcdc_t lcdc,
     input byte scy, scx,
+    input byte bgp,
     output byte ly,
     // Display:
     output ppu_phase_t phase,
@@ -196,6 +193,7 @@ module ppu_renderer(
         .pop(fifo_pop),
         .load_hi(pix_hi),
         .load_lo(pix_lo),
+        .palette(bgp),
         .color(fifo_pixel),
         .empty(bg_fifo_empty)
     );
@@ -212,6 +210,7 @@ module bg_shr (
     input wire pop,
     input wire [7:0] load_hi, load_lo,
     input wire load,
+    input wire [7:0] palette,
     output reg [1:0] color,
     output reg empty
 );
@@ -227,7 +226,12 @@ module bg_shr (
             buf_lo <= buf_lo << 1;
         end
 
-    assign color = {buf_hi[7], buf_lo[7]};
+    always_comb case ({buf_hi[7], buf_lo[7]})
+        2'b00: color = palette[1:0];
+        2'b01: color = palette[3:2];
+        2'b10: color = palette[5:4];
+        2'b11: color = palette[7:6];
+    endcase
     assign empty = ~|filled;
 endmodule
 
