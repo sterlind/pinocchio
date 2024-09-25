@@ -398,6 +398,13 @@ module decoder(
 
             {JP_HL,     3'd0}: /* pc <- inc hl; done */                 begin done = 1; idu = INC; s_ab = HL; wr_pc = 1; end
 
+            {CALL_CC_NN,3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {CALL_CC_NN,3'd1}: /* w <- [pc]; inc pc; cc or goto 5*/     begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; is_cond = 1; next_cond = 3'd5; end
+            {CALL_CC_NN,3'd2}: /* dec sp */                             begin idu = DEC; s_ab = R16_SP; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {CALL_CC_NN,3'd3}: /* [sp] <- pch; dec sp */                begin s_ab = R16_SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {CALL_CC_NN,3'd4}: /* [sp] <- pcl; pc <- wz */              begin s_ab = R16_SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
+            {CALL_CC_NN,3'd5}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
             {CALL_NN,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {CALL_NN,   3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {CALL_NN,   3'd2}: /* dec sp */                             begin idu = DEC; s_ab = R16_SP; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
@@ -409,6 +416,12 @@ module decoder(
             {RST_N,     3'd1}: /* [sp] <- pch; dec sp */                begin s_ab = R16_SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {RST_N,     3'd2}: /* [sp] <- pcl; pc <- tgt */             begin s_ab = R16_SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_TGT; t_rr_wb = PC; end
             {RST_N,     3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
+            {RET_CC,    3'd0}: /* cc or goto 4 */                       begin ab_mask = AB_ZERO; is_cond = 1; next_cond = 3'd4; end
+            {RET_CC,    3'd1}: /* z <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {RET_CC,    3'd2}: /* w <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
+            {RET_CC,    3'd3}: /* pc <- wz */                           begin ab_mask = AB_ZERO; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
+            {RET_CC,    3'd4}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
 
             {RET,       3'd0}: /* z <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = Z; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {RET,       3'd1}: /* w <- [sp]; inc sp */                  begin s_ab = R16_SP; s_db = MEM; t_db = W; idu = INC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
