@@ -4,6 +4,24 @@
     <Mode>Standard</Mode>
     <AoCore index="0" sample_clock="tclk" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="top" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
         <SignalList>
+            <Bus capture_enable="true" name="PC" restorename="group_0[15:0]">
+                <Signal>dmg/cpu/rf[11][7]</Signal>
+                <Signal>dmg/cpu/rf[11][6]</Signal>
+                <Signal>dmg/cpu/rf[11][5]</Signal>
+                <Signal>dmg/cpu/rf[11][4]</Signal>
+                <Signal>dmg/cpu/rf[11][3]</Signal>
+                <Signal>dmg/cpu/rf[11][2]</Signal>
+                <Signal>dmg/cpu/rf[11][1]</Signal>
+                <Signal>dmg/cpu/rf[11][0]</Signal>
+                <Signal>dmg/cpu/rf[12][7]</Signal>
+                <Signal>dmg/cpu/rf[12][6]</Signal>
+                <Signal>dmg/cpu/rf[12][5]</Signal>
+                <Signal>dmg/cpu/rf[12][4]</Signal>
+                <Signal>dmg/cpu/rf[12][3]</Signal>
+                <Signal>dmg/cpu/rf[12][2]</Signal>
+                <Signal>dmg/cpu/rf[12][1]</Signal>
+                <Signal>dmg/cpu/rf[12][0]</Signal>
+            </Bus>
             <Bus capture_enable="true" name="dmg/cpu/ir[7:0]">
                 <Signal>dmg/cpu/ir[7]</Signal>
                 <Signal>dmg/cpu/ir[6]</Signal>
@@ -19,59 +37,35 @@
                 <Signal>dmg/cpu/step[1]</Signal>
                 <Signal>dmg/cpu/step[0]</Signal>
             </Bus>
-            <Bus capture_enable="true" name="dmg/cpu/ctrl/idu[1:0]">
-                <Signal>dmg/cpu/ctrl/idu[1]</Signal>
-                <Signal>dmg/cpu/ctrl/idu[0]</Signal>
+            <Bus capture_enable="true" name="dmg/irq[7:0]">
+                <Signal>dmg/irq[7]</Signal>
+                <Signal>dmg/irq[6]</Signal>
+                <Signal>dmg/irq[5]</Signal>
+                <Signal>dmg/irq[4]</Signal>
+                <Signal>dmg/irq[3]</Signal>
+                <Signal>dmg/irq[2]</Signal>
+                <Signal>dmg/irq[1]</Signal>
+                <Signal>dmg/irq[0]</Signal>
             </Bus>
-            <Signal capture_enable="true">dmg/cpu/alu_f_out.f_z</Signal>
-            <Signal capture_enable="true">dmg/cpu/alu_f_out.f_n</Signal>
-            <Signal capture_enable="true">dmg/cpu/alu_f_out.f_h</Signal>
-            <Signal capture_enable="true">dmg/cpu/alu_f_out.f_c</Signal>
-            <Bus capture_enable="true" name="dmg/cpu/rr_wb[15:0]">
-                <Signal>dmg/cpu/rr_wb[15]</Signal>
-                <Signal>dmg/cpu/rr_wb[14]</Signal>
-                <Signal>dmg/cpu/rr_wb[13]</Signal>
-                <Signal>dmg/cpu/rr_wb[12]</Signal>
-                <Signal>dmg/cpu/rr_wb[11]</Signal>
-                <Signal>dmg/cpu/rr_wb[10]</Signal>
-                <Signal>dmg/cpu/rr_wb[9]</Signal>
-                <Signal>dmg/cpu/rr_wb[8]</Signal>
-                <Signal>dmg/cpu/rr_wb[7]</Signal>
-                <Signal>dmg/cpu/rr_wb[6]</Signal>
-                <Signal>dmg/cpu/rr_wb[5]</Signal>
-                <Signal>dmg/cpu/rr_wb[4]</Signal>
-                <Signal>dmg/cpu/rr_wb[3]</Signal>
-                <Signal>dmg/cpu/rr_wb[2]</Signal>
-                <Signal>dmg/cpu/rr_wb[1]</Signal>
-                <Signal>dmg/cpu/rr_wb[0]</Signal>
+            <Bus capture_enable="true" name="dmg/cpu/rf[1][7:0]">
+                <Signal>dmg/cpu/rf[1][7]</Signal>
+                <Signal>dmg/cpu/rf[1][6]</Signal>
+                <Signal>dmg/cpu/rf[1][5]</Signal>
+                <Signal>dmg/cpu/rf[1][4]</Signal>
+                <Signal>dmg/cpu/rf[1][3]</Signal>
+                <Signal>dmg/cpu/rf[1][2]</Signal>
+                <Signal>dmg/cpu/rf[1][1]</Signal>
+                <Signal>dmg/cpu/rf[1][0]</Signal>
             </Bus>
-            <Bus capture_enable="true" name="dmg/cpu/r_wb[7:0]">
-                <Signal>dmg/cpu/r_wb[7]</Signal>
-                <Signal>dmg/cpu/r_wb[6]</Signal>
-                <Signal>dmg/cpu/r_wb[5]</Signal>
-                <Signal>dmg/cpu/r_wb[4]</Signal>
-                <Signal>dmg/cpu/r_wb[3]</Signal>
-                <Signal>dmg/cpu/r_wb[2]</Signal>
-                <Signal>dmg/cpu/r_wb[1]</Signal>
-                <Signal>dmg/cpu/r_wb[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dmg/cpu/ab[15:0]">
-                <Signal>dmg/cpu/ab[15]</Signal>
-                <Signal>dmg/cpu/ab[14]</Signal>
-                <Signal>dmg/cpu/ab[13]</Signal>
-                <Signal>dmg/cpu/ab[12]</Signal>
-                <Signal>dmg/cpu/ab[11]</Signal>
-                <Signal>dmg/cpu/ab[10]</Signal>
-                <Signal>dmg/cpu/ab[9]</Signal>
-                <Signal>dmg/cpu/ab[8]</Signal>
-                <Signal>dmg/cpu/ab[7]</Signal>
-                <Signal>dmg/cpu/ab[6]</Signal>
-                <Signal>dmg/cpu/ab[5]</Signal>
-                <Signal>dmg/cpu/ab[4]</Signal>
-                <Signal>dmg/cpu/ab[3]</Signal>
-                <Signal>dmg/cpu/ab[2]</Signal>
-                <Signal>dmg/cpu/ab[1]</Signal>
-                <Signal>dmg/cpu/ab[0]</Signal>
+            <Bus capture_enable="true" name="dmg/cpu/rf[2][7:0]">
+                <Signal>dmg/cpu/rf[2][7]</Signal>
+                <Signal>dmg/cpu/rf[2][6]</Signal>
+                <Signal>dmg/cpu/rf[2][5]</Signal>
+                <Signal>dmg/cpu/rf[2][4]</Signal>
+                <Signal>dmg/cpu/rf[2][3]</Signal>
+                <Signal>dmg/cpu/rf[2][2]</Signal>
+                <Signal>dmg/cpu/rf[2][1]</Signal>
+                <Signal>dmg/cpu/rf[2][0]</Signal>
             </Bus>
         </SignalList>
         <Triggers>
@@ -113,8 +107,34 @@
                     </Bus>
                 </SignalList>
             </Trigger>
-            <Trigger index="2"/>
-            <Trigger index="3"/>
+            <Trigger index="2">
+                <SignalList>
+                    <Bus restorename="dmg/irq[7:0]">
+                        <Signal>dmg/irq[7]</Signal>
+                        <Signal>dmg/irq[6]</Signal>
+                        <Signal>dmg/irq[5]</Signal>
+                        <Signal>dmg/irq[4]</Signal>
+                        <Signal>dmg/irq[3]</Signal>
+                        <Signal>dmg/irq[2]</Signal>
+                        <Signal>dmg/irq[1]</Signal>
+                        <Signal>dmg/irq[0]</Signal>
+                    </Bus>
+                </SignalList>
+            </Trigger>
+            <Trigger index="3">
+                <SignalList>
+                    <Bus restorename="dmg/cpu/xint/r_ie[7:0]">
+                        <Signal>dmg/cpu/xint/r_ie[7]</Signal>
+                        <Signal>dmg/cpu/xint/r_ie[6]</Signal>
+                        <Signal>dmg/cpu/xint/r_ie[5]</Signal>
+                        <Signal>dmg/cpu/xint/r_ie[4]</Signal>
+                        <Signal>dmg/cpu/xint/r_ie[3]</Signal>
+                        <Signal>dmg/cpu/xint/r_ie[2]</Signal>
+                        <Signal>dmg/cpu/xint/r_ie[1]</Signal>
+                        <Signal>dmg/cpu/xint/r_ie[0]</Signal>
+                    </Bus>
+                </SignalList>
+            </Trigger>
             <Trigger index="4"/>
             <Trigger index="5"/>
             <Trigger index="6"/>
@@ -130,9 +150,9 @@
         </Triggers>
         <MatchUnits>
             <MatchUnit index="0" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="00010000" value1="00000000" trigger="1"/>
-            <MatchUnit index="1" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="10000111" value1="00000000" trigger="1"/>
-            <MatchUnit index="2" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
-            <MatchUnit index="3" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
+            <MatchUnit index="1" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="1" value0="00000000" value1="00000000" trigger="2"/>
+            <MatchUnit index="2" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="1" value0="00000000" value1="00000000" trigger="3"/>
+            <MatchUnit index="3" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="0000000001000000" value1="0000000000000000" trigger="0"/>
             <MatchUnit index="4" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
             <MatchUnit index="5" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
             <MatchUnit index="6" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
@@ -147,8 +167,8 @@
             <MatchUnit index="15" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
         </MatchUnits>
         <Expressions type="Static">
-            <Expression>M0</Expression>
+            <Expression>M3</Expression>
         </Expressions>
     </AoCore>
-    <GAO_ID>1111111011111001</GAO_ID>
+    <GAO_ID>1001111101101001</GAO_ID>
 </GAO_CONFIG>

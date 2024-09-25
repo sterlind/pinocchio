@@ -37,6 +37,7 @@ typedef enum logic [7:0] {
 
     RET_CC      = 8'b110xx000,
     RET         = 8'b11001001,
+    JP_CC_NN    = 8'b110xx010,
     JP_NN       = 8'b11000011,
     JP_HL       = 8'b11101001,
     CALL_CC_NN  = 8'b110xx100,
@@ -385,6 +386,11 @@ module decoder(
             {ALU_A_N,   3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {ALU_A_N,   3'd1}: /* a <- alu(a, z); inc pc; done */       begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_db = Z; t_db = A; s_r_wb = R_WB_ALU; end
 
+            {JP_CC_NN,  3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
+            {JP_CC_NN,  3'd1}: /* w <- [pc]; inc pc; cc or goto 3 */    begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; is_cond = 1; next_cond = 3'd3; end
+            {JP_CC_NN,  3'd2}: /* pc <- wz */                           begin ab_mask = AB_ZERO; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
+            {JP_CC_NN,  3'd3}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+
             {JP_NN,     3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {JP_NN,     3'd1}: /* w <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = W; end
             {JP_NN,     3'd2}: /* pc <- wz */                           begin ab_mask = AB_ZERO; s_rr_wb = RR_WB_WZ; t_rr_wb = PC; end
@@ -448,7 +454,7 @@ module decoder(
             {IRQ,       3'd1}: /* dec sp */                             begin idu = DEC; s_ab = R16_SP; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {IRQ,       3'd2}: /* [sp] <- pch; dec sp */                begin s_ab = R16_SP; s_db = PCH; t_db = MEM; idu = DEC; s_rr_wb = RR_WB_IDU; t_rr_wb = R16_SP; end
             {IRQ,       3'd3}: /* [sp] <- pcl; pc <- irq */             begin s_ab = R16_SP; s_db = PCL; t_db = MEM; s_rr_wb = RR_WB_IRQ; t_rr_wb = PC; end
-            {IRQ,       3'd4}: /* fetch pc, done */                     begin s_ab = PC; done = 1; end
+            {IRQ,       3'd4}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
             //default: $error("Bad opcode, step (%h, %d)", opcode, step);
         endcase
     end
@@ -600,9 +606,9 @@ module sm83(
         else begin
             write = c_t_db == MEM;
             casex (addr)
-                HRAM: begin hram_write = write; d_in = hram_rd; end
                 IE: begin write_ie = write; d_in = ie_rd; end
                 IF: begin write_if = write; d_in = if_rd; end
+                HRAM: begin hram_write = write; d_in = hram_rd; end
                 default: d_in = d_in_ext;
             endcase
         end
