@@ -100,6 +100,7 @@ module dmg_main(
         ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0; wram_write = 0;
         bus_in = 8'hff;
         casex (cpu_addr)
+            16'hff00: bus_in = 8'h0f;
             VRAM: begin bus_in = vram_d_rd; vram_write = cpu_write; end
             WRAM: begin bus_in = wram_d_rd; wram_write = cpu_write; end
             ADDR_ROM: begin bus_in = (hide_boot || |rom_addr[14:8]) ? rom_data : boot_data; end
