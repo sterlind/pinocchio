@@ -62,8 +62,14 @@ typedef enum logic [7:0] {
 } opcode_t;
 
 typedef enum logic [7:0] {
+    SRU_R_HL    = 8'b00xxx110,
     SRU_R       = 8'b00xxxxxx,
-    BIT_B_R     = 8'b01xxxxxx
+    BIT_B_HL    = 8'b01xxx110,
+    BIT_B_R     = 8'b01xxxxxx,
+    RES_B_HL    = 8'b10xxx110,
+    RES_B_R     = 8'b10xxxxxx,
+    SET_B_HL    = 8'b11xxx110,
+    SET_B_R     = 8'b11xxxxxx
 } prefix_opcode_t;
 
 typedef enum logic [2:0] {
@@ -81,7 +87,7 @@ typedef enum logic [1:0] {
     SRU_OP,
     SRU_BIT,
     SRU_SET,
-    SRU_RST
+    SRU_RES
 } sru_mode_t;
 
 typedef enum logic [2:0] {
@@ -297,9 +303,21 @@ module decoder(
         set_ime = 0; rst_ime = 0;
 
         if (in_prefix) casex ({opcode, step})
+            {SRU_R_HL,  3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
+            {SRU_R_HL,  3'd1}: /* [hl] <- sru z */                      begin s_ab = HL; s_db = Z; t_db = MEM; s_r_wb = R_WB_SRU; sru_mode = SRU_OP; end
+            {SRU_R_HL,  3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
             {SRU_R,     3'd0}: /* r <- sru r; inc pc; done */           begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = r8_src; t_db = r8_src; end
+            {BIT_B_HL,  3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
+            {BIT_B_HL,  3'd1}: /* f_z <- bit(b, z); inc pc; done */     begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; sru_mode = SRU_BIT; s_db = Z; end
             {BIT_B_R,   3'd0}: /* f_z <- bit(b, r); inc pc; done */     begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; sru_mode = SRU_BIT; s_db = r8_src; end
-            //default: $error("Bad *prefix* opcode, step (%h, %d)", opcode, step);
+            {RES_B_HL,  3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
+            {RES_B_HL,  3'd1}: /* [hl] <- res(b, z); */                 begin s_ab = HL; s_r_wb = R_WB_SRU; sru_mode = SRU_RES; s_db = Z; t_db = MEM; end
+            {RES_B_HL,  3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+            {RES_B_R,   3'd0}: /* r <- rst(b, r); inc pc; done */       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; sru_mode = SRU_RES; s_db = r8_src; t_db = r8_src; end
+            {SET_B_HL,  3'd0}: /* z <- [hl] */                          begin s_ab = HL; s_db = MEM; t_db = Z; end
+            {SET_B_HL,  3'd1}: /* [hl] <- set(b, z); */                 begin s_ab = HL; s_r_wb = R_WB_SRU; sru_mode = SRU_SET; s_db = Z; t_db = MEM; end
+            {SET_B_HL,  3'd2}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
+            {SET_B_R,   3'd0}: /* r <- set(b, r); inc pc; done */       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_r_wb = R_WB_SRU; sru_mode = SRU_SET; s_db = r8_src; t_db = r8_src; end
         endcase
         else casex ({opcode, step})
             {NOP,       3'd0}: /* inc pc; done */                       begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; end
@@ -793,6 +811,8 @@ module sru_m (
                 default: {c_out, res} = {1'bx, in};
             endcase
         end
+        SRU_RES: {c_out, res} = {1'b0, in & ~(8'd1 << idx)};
+        SRU_SET: {c_out, res} = {1'b0, in | ~(8'd1 << idx)};
         default: {c_out, res} = '0;
     endcase
 endmodule
