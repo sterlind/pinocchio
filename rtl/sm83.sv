@@ -17,7 +17,10 @@ typedef enum logic [7:0] {
     LD_HL_N     = 8'b00110110,
     LD_R_N      = 8'b00xxx110,
 
+    RLCA        = 8'b00000111,
+    RRCA        = 8'b00001111,
     RLA         = 8'b00010111,
+    RRA         = 8'b00011111,
     CPL         = 8'b00101111,
 
     JR_E        = 8'b00011000,
@@ -359,7 +362,10 @@ module decoder(
             {LD_R_N,    3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
             {LD_R_N,    3'd1}: /* r8_dst <- z; inc pc; done */          begin done = 1; idu = INC; s_ab = PC; wr_pc = 1; s_db = Z; t_db = r8_dst; end       
 
+            {RLCA,      3'd0}: /* a <- sru(rl, a); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = A; t_db = A; alu_op = SRU_RLC; end
+            {RRCA,      3'd0}: /* a <- sru(rl, a); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = A; t_db = A; alu_op = SRU_RRC; end
             {RLA,       3'd0}: /* a <- sru(rl, a); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = A; t_db = A; alu_op = SRU_RL; end
+            {RRA,       3'd0}: /* a <- sru(rl, a); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_SRU; s_db = A; t_db = A; alu_op = SRU_RR; end
             {CPL,       3'd0}: /* a <- xor(a, ff); inc pc; done */      begin done = 1; s_ab = PC; idu = INC; wr_pc = 1; s_r_wb = R_WB_ALU; t_db = A; s_arg = ARG_FF; alu_op = ALU_XOR; end
 
             {JR_E,      3'd0}: /* z <- [pc]; inc pc */                  begin s_ab = PC; idu = INC; wr_pc = 1; s_db = MEM; t_db = Z; end
