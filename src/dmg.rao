@@ -4,76 +4,25 @@
     <Mode>Lite</Mode>
     <AoCore_Lite index="0" sample_clock="tclk" trig_type="0" capture_amount="1024" implemention="0" input_register_enabled="0" capture_init_data_enabled="0" module_name="top">
         <SignalList>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/fetcher/lx[7:0]">
-                <Signal>dmg/ppu/renderer/fetcher/lx[7]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/lx[6]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/lx[5]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/lx[4]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/lx[3]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/lx[2]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/lx[1]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/lx[0]</Signal>
+            <Bus capture_enable="true" name="dmg/cpu/addr[15:0]">
+                <Signal>dmg/cpu/addr[15]</Signal>
+                <Signal>dmg/cpu/addr[14]</Signal>
+                <Signal>dmg/cpu/addr[13]</Signal>
+                <Signal>dmg/cpu/addr[12]</Signal>
+                <Signal>dmg/cpu/addr[11]</Signal>
+                <Signal>dmg/cpu/addr[10]</Signal>
+                <Signal>dmg/cpu/addr[9]</Signal>
+                <Signal>dmg/cpu/addr[8]</Signal>
+                <Signal>dmg/cpu/addr[7]</Signal>
+                <Signal>dmg/cpu/addr[6]</Signal>
+                <Signal>dmg/cpu/addr[5]</Signal>
+                <Signal>dmg/cpu/addr[4]</Signal>
+                <Signal>dmg/cpu/addr[3]</Signal>
+                <Signal>dmg/cpu/addr[2]</Signal>
+                <Signal>dmg/cpu/addr[1]</Signal>
+                <Signal>dmg/cpu/addr[0]</Signal>
             </Bus>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/fetcher/scx[7:0]">
-                <Signal>dmg/ppu/renderer/fetcher/scx[7]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/scx[6]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/scx[5]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/scx[4]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/scx[3]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/scx[2]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/scx[1]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/scx[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/fetcher/vram_addr[12:0]">
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[12]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[11]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[10]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[9]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[8]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[7]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[6]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[5]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[4]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[3]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[2]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[1]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_addr[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/fetcher/vram_in[7:0]">
-                <Signal>dmg/ppu/renderer/fetcher/vram_in[7]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_in[6]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_in[5]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_in[4]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_in[3]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_in[2]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_in[1]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/vram_in[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/fetcher/tile_id[7:0]">
-                <Signal>dmg/ppu/renderer/fetcher/tile_id[7]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/tile_id[6]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/tile_id[5]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/tile_id[4]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/tile_id[3]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/tile_id[2]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/tile_id[1]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/tile_id[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/fetcher/state[2:0]">
-                <Signal>dmg/ppu/renderer/fetcher/state[2]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/state[1]</Signal>
-                <Signal>dmg/ppu/renderer/fetcher/state[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/phase[1:0]">
-                <Signal>dmg/ppu/renderer/phase[1]</Signal>
-                <Signal>dmg/ppu/renderer/phase[0]</Signal>
-            </Bus>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/pixel[1:0]">
-                <Signal>dmg/ppu/renderer/pixel[1]</Signal>
-                <Signal>dmg/ppu/renderer/pixel[0]</Signal>
-            </Bus>
-            <Signal capture_enable="true">dmg/ppu/renderer/pixel_valid</Signal>
         </SignalList>
     </AoCore_Lite>
-    <GAO_ID>1100010110110100</GAO_ID>
+    <GAO_ID>1010001111010010</GAO_ID>
 </GAO_CONFIG>
