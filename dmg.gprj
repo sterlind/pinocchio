@@ -9,8 +9,10 @@
         <File path="rtl/blocks/cart_prom.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/dpb_fbram.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/gclkdiv4.v" type="file.verilog" enable="1"/>
+        <File path="rtl/blocks/oam_sdpb.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/sp_8192w_8b.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/tclk_pll.v" type="file.verilog" enable="1"/>
+        <File path="rtl/blocks/work_spram.v" type="file.verilog" enable="1"/>
         <File path="rtl/debounce.v" type="file.verilog" enable="1"/>
         <File path="rtl/dmg_main.sv" type="file.verilog" enable="1"/>
         <File path="rtl/gb_display.sv" type="file.verilog" enable="1"/>
@@ -18,7 +20,6 @@
         <File path="rtl/ram.sv" type="file.verilog" enable="1"/>
         <File path="rtl/sm83.sv" type="file.verilog" enable="1"/>
         <File path="rtl/top.sv" type="file.verilog" enable="1"/>
-        <File path="src/gowin_sp/work_spram.v" type="file.verilog" enable="1"/>
         <File path="dmg.cst" type="file.cst" enable="1"/>
         <File path="dmg.sdc" type="file.sdc" enable="1"/>
         <File path="src/dmg.rao" type="file.gao" enable="1"/>

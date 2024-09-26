@@ -70,14 +70,14 @@ module gb_display(
     localparam C11 = 24'h9bbc0f;
 
     reg [15:0] vga_color;
-    always_comb case (fb_out)
+    always_comb case (~fb_out)
         2'b00: vga_color = {C00[23-:5], C00[15-:6], C00[7-:5]};
         2'b01: vga_color = {C01[23-:5], C01[15-:6], C01[7-:5]};
         2'b10: vga_color = {C10[23-:5], C10[15-:6], C10[7-:5]};
         2'b11: vga_color = {C11[23-:5], C11[15-:6], C11[7-:5]};
     endcase
 
-    assign {r, g, b} = (vga_addr_valid & (|fb_out)) ? vga_color : 16'b0;
+    assign {r, g, b} = vga_addr_valid ? vga_color : 16'b0;
 endmodule
 
 module ppu_timer (

@@ -29,14 +29,17 @@ typedef struct packed {
 
 module ppu_m (
     input wire clk,
+    input wire [7:0] d_wr,
     // Regs:
     input wire [3:0] reg_addr,
-    input wire [7:0] reg_d_wr,
     output logic [7:0] reg_d_rd,
     input wire reg_write,
+    // OAM:
+    input wire [7:0] oam_addr_in,
+    output logic [7:0] oam_d_rd,
+    input wire oam_write,
     // VRAM:
     input wire [12:0] vram_addr_in,
-    input wire [7:0] vram_d_wr,
     output logic [7:0] vram_d_rd,
     input wire vram_write_in,
     // Display:
@@ -60,10 +63,10 @@ module ppu_m (
         default: reg_d_rd = 'x;
     endcase
     always_ff @(posedge clk) if (reg_write) case (ppu_reg_t'(reg_addr))
-        LCDC: lcdc = reg_d_wr;
-        SCY: scy = reg_d_wr;
-        SCX: scx = reg_d_wr;
-        BGP: bgp = reg_d_wr;
+        LCDC: lcdc = d_wr;
+        SCY: scy = d_wr;
+        SCX: scx = d_wr;
+        BGP: bgp = d_wr;
     endcase
 
     ppu_phase_t phase, phase_prev;
@@ -97,7 +100,26 @@ module ppu_m (
         .reset(~lcdc.ena),
         .wre(vram_write),
         .ad(vram_addr),
-        .din(vram_d_wr)
+        .din(d_wr)
+    );
+
+    // OAM:
+    reg [7:0] oam_write_addr;
+    reg [6:0] oam_read_addr;
+    reg [15:0] oam_db;
+    assign oam_d_rd = oam_addr_in[0] ? oam_db[15:8] : oam_db[7:0];
+    oam_sdpb oam_block (
+        .clka(~clk),
+        .cea(oam_write),
+        .reseta(~lcdc.ena),
+        .clkb(~clk),
+        .ceb(1'b1),
+        .resetb(~lcdc.ena),
+        .oce(1'b0),
+        .ada(oam_addr_in),
+        .din(d_wr),
+        .adb(oam_addr_in[7:1]),
+        .dout(oam_db)
     );
 
     always_ff @(posedge clk) phase_prev <= phase;
