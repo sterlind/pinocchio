@@ -136,11 +136,28 @@ module ppu_m (
     assign lcd_color = renderer_pixel;
 endmodule
 
+module sprite_buf_entry(
+    input wire clk, rst,
+    input wire [15:0] d_in,
+    output logic [15:0] d_out,
+    input wire load, hi
+);
+    reg [7:0] y, x, tile_id, flags;
+    assign d_out = hi ? {flags, tile_id} : {x, y};
+    always @(posedge clk)
+        if (~rst) begin y <= 0; x <= 0; tile_id <= 0; flags <= 0; end
+        else if (load)
+            if (hi) {flags, tile_id} <= d_in;
+            else {x, y} <= d_in;
+endmodule
+
 module ppu_renderer(
     input wire clk,
     // Bus -> VRAM, OAM:
     output wire [12:0] vram_addr,
     input wire [7:0] vram_in,
+    output wire [6:0] oam_addr,
+    input wire [15:0] oam_in,
     // Regs:
     input lcdc_t lcdc,
     input byte scy, scx,
@@ -152,10 +169,20 @@ module ppu_renderer(
     output reg [1:0] pixel
 );
     reg fifo_pop;
-    assign pixel_valid = fifo_pop;
-
     reg [8:0] dot_ctr;
     reg [7:0] lx;
+    assign pixel_valid = fifo_pop;
+
+    wire [15:0] sprite_daisy [0:9];
+    sprite_buf_entry sprites[0:9] (
+        .clk(clk),
+        .rst(~lcdc.ena || phase == PHASE_HBLANK || phase == PHASE_VBLANK),
+        .d_in({oam_in, sprite_daisy}),
+        .d_out({sprite_daisy, 16'bx}),
+        .load(phase == PHASE_OAM_SCAN),
+        .hi(dot_ctr[0])
+    )
+
     always_ff @(posedge clk)
         if (~lcdc.ena) begin
             // On disable:
