@@ -136,21 +136,6 @@ module ppu_m (
     assign lcd_color = renderer_pixel;
 endmodule
 
-module sprite_buf_entry(
-    input wire clk, rst,
-    input wire [15:0] d_in,
-    output logic [15:0] d_out,
-    input wire load, hi
-);
-    reg [7:0] y, x, tile_id, flags;
-    assign d_out = hi ? {flags, tile_id} : {x, y};
-    always @(posedge clk)
-        if (~rst) begin y <= 0; x <= 0; tile_id <= 0; flags <= 0; end
-        else if (load)
-            if (hi) {flags, tile_id} <= d_in;
-            else {x, y} <= d_in;
-endmodule
-
 module ppu_renderer(
     input wire clk,
     // Bus -> VRAM, OAM:
@@ -172,16 +157,6 @@ module ppu_renderer(
     reg [8:0] dot_ctr;
     reg [7:0] lx;
     assign pixel_valid = fifo_pop;
-
-    wire [15:0] sprite_daisy [0:9];
-    sprite_buf_entry sprites[0:9] (
-        .clk(clk),
-        .rst(~lcdc.ena || phase == PHASE_HBLANK || phase == PHASE_VBLANK),
-        .d_in({oam_in, sprite_daisy}),
-        .d_out({sprite_daisy, 16'bx}),
-        .load(phase == PHASE_OAM_SCAN),
-        .hi(dot_ctr[0])
-    )
 
     always_ff @(posedge clk)
         if (~lcdc.ena) begin
@@ -349,6 +324,95 @@ module pixel_fetcher (
             FETCH_DATA_LOW: begin state <= FETCH_DATA_HIGH; data_low <= vram_in; end
             FETCH_DATA_HIGH: begin state <= FETCH_PUSH; data_high <= vram_in; end
         endcase
+endmodule
+
+typedef enum logic [1:0] {
+    SPRITE_ATTRS,
+    SPRITE_TILE_ID,
+    SPRITE_Y
+} s_sprite_data_t;
+
+module sprite_chain(
+    input wire clk, rst, load, hi,
+    input wire [15:0] d_load,
+    input wire [7:0] lx, ly,
+    input wire s_sprite_data_t s_data,
+    output logic [7:0] d_out,
+    output logic d_valid
+);
+    reg valid, in_range;
+    reg [7:0] dy;
+    assign dy = ly - d_load[7:0];
+
+    always_ff @(posedge clk)
+        if (~rst) valid <= 0;
+        else if (load) begin
+            if (hi) valid <= 0; // Reset on hi.
+            else valid <= ~|dy[7:3]; // Not negative and within 8 pixels. Todo: handle tall sprites.
+        end
+
+    reg [15:0] d_in;
+    assign d_in = hi ? d_load : {d_load[15:8], dy};
+    wire [3:0] bus_pri [0:9];
+    wire [7:0] bus_data [0:9];
+    wire bus_valid [0:9];
+
+    sprite_slot slot[0:9] (
+        .clk(clk), .rst(rst),
+        .load(load & valid), .hi(hi),
+        .s_data(s_data),
+        .d_load(d_in),
+        .lx(lx),
+        .pri_in('{4'bx, bus_pri}),
+        .pri_out('{bus_pri, 4'bx}),
+        .d_in({8'bx, bus_data}),
+        .d_out({8'bx, d_out}),
+        .valid_in('{1'b0, bus_valid}),
+        .valid_out('{bus_valid, d_valid})
+    );
+endmodule
+
+module sprite_slot(
+    input wire clk, rst,
+    input wire load, hi,
+    input wire s_sprite_data_t s_data,
+    input wire [15:0] d_load,
+    input wire [7:0] lx,
+    // Sprite bus:
+    input wire [3:0] pri_in,    // [Pri]:   Priority of current candidate. 
+    output logic [3:0] pri_out, //          Composed of sprite's x coord and priority bit.
+    input wire [7:0] d_in,      // [Data]:  Sprite data (tile idx, y offset, attrs.)
+    output logic [7:0] d_out,
+    input wire valid_in,        // [Valid]: During draw, signals that the bus contains some eligible sprite.
+    output logic valid_out      //          During load, signals that a previous slot took the data.
+);
+    reg filled, eligible, chosen;
+    reg [7:0] dy, x, y, tile_idx, attrs, dx;
+    reg [3:0] pri;
+
+    assign dx = lx - x;
+    assign eligible = ~|dx[7:3]; // Not negative and within 8 pixels.
+    assign pri = {attrs[7], dx[2:0]};
+    assign chosen = eligible && (~valid_in || pri < pri_in);
+
+    assign valid_out = load ? ~filled : (valid_in || chosen);
+    assign pri_out = chosen ? pri : pri_in;
+
+    always_comb
+        if (chosen)
+            case (s_data)
+                SPRITE_ATTRS: d_out = attrs;
+                SPRITE_TILE_ID: d_out = tile_idx;
+                SPRITE_Y: d_out = y;
+            endcase
+        else d_out = d_in;
+
+    always_ff @(posedge clk)
+        if (~rst) filled <= 0;
+        else if (load && ~filled && ~valid_in) begin
+            if (hi) {attrs, tile_idx} <= d_load;
+            else {x, y} <= d_load;
+        end
 endmodule
 
 `default_nettype wire
