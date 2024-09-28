@@ -22,7 +22,17 @@
                 <Signal>dmg/cpu/addr[1]</Signal>
                 <Signal>dmg/cpu/addr[0]</Signal>
             </Bus>
+            <Bus capture_enable="true" name="dmg/ppu/scy[7:0]">
+                <Signal>dmg/ppu/scy[7]</Signal>
+                <Signal>dmg/ppu/scy[6]</Signal>
+                <Signal>dmg/ppu/scy[5]</Signal>
+                <Signal>dmg/ppu/scy[4]</Signal>
+                <Signal>dmg/ppu/scy[3]</Signal>
+                <Signal>dmg/ppu/scy[2]</Signal>
+                <Signal>dmg/ppu/scy[1]</Signal>
+                <Signal>dmg/ppu/scy[0]</Signal>
+            </Bus>
         </SignalList>
     </AoCore_Lite>
-    <GAO_ID>1010001111010010</GAO_ID>
+    <GAO_ID>0111011101110010</GAO_ID>
 </GAO_CONFIG>

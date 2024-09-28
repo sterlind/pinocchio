@@ -104,7 +104,7 @@ module dmg_main(
     assign dma_src_addr = {dma_base, dma_idx};
 
     always_ff @(negedge clk)
-        if (~rst) begin hide_boot <= 0; dma_base <= 8'hff; end
+        if (~rst) begin hide_boot <= 0; dma_base <= 8'hff; dma_idx <= 8'h9f; end
         else begin
             if (bus_write) case (bus_addr)
                 HIDEROM: hide_boot <= hide_boot | (|cpu_d_out);
@@ -115,7 +115,7 @@ module dmg_main(
 
     assign rom_addr = bus_addr[14:0];
     always_comb begin
-        ppu_reg_write = 0; vram_write = 0; ppu_reg_write = 0; wram_write = 0; oam_write = 0;
+        ppu_reg_write = 0; vram_write = 0; wram_write = 0; oam_write = 0;
         bus_in = 8'hff;
         casex (bus_addr)
             16'hff00: bus_in = 8'h0f;
