@@ -1,5 +1,5 @@
 typedef struct packed {
-    bit [3:0] dy;    // Y offset within the sprite block (for current ly.)
+    bit [2:0] dy;    // Y offset within the sprite block (for current ly.)
     reg [7:0] tile;  // Tile index.
     reg [3:0] attrs; // Sprite attributes.
 } sprite_data_t;
@@ -64,21 +64,24 @@ module sprite_chain(
     );
 
     assign d_out = bus_out.data, d_valid = bus_out.bypass;
-    
+
     // Buffer the first word of OAM, so we can assemble the whole entry before storing it in a slot.
     reg [15:0] oam_buf; 
     oam_entry_t entry;
     assign entry = {oam_d_in, oam_buf};
 
     // Calculate y offset within sprite, and check if it's visible on this scan line.
-    reg [7:0] dy;
+    reg [7:0] dy, tile;
+    reg [3:0] dy_corr;
     assign dy = ly - (entry.y - 8'd16);
+    assign dy_corr = entry.attrs[6] ? ~dy[3:0] : dy[3:0]; 
     reg visible;
     assign visible = cfg_tall_sprites ? ~dy[7:4] : ~dy[7:3];
+    assign tile = cfg_tall_sprites ? {entry.tile[7:1], dy_corr[3]} : entry.tile;
 
     assign bus_in = load
         // During load, fill slots with OAM data. Bypass all slots if sprite is out of range or not yet buffered.
-        ? {entry.x, {dy, entry.tile, entry.attrs[7:4]}, ~(visible & oam_addr[0])}
+        ? {entry.x, {dy_corr[2:0], tile, entry.attrs[7:4]}, ~(visible & oam_addr[0])}
         // Otherwise, send a query through, bypassing if query mode isn't active.
         : {lx, sprite_data_t'('x), ~query};
 
