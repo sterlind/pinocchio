@@ -1,7 +1,7 @@
 typedef struct packed {
     bit [2:0] dy;    // Y offset within the sprite block (for current ly.)
-    reg [7:0] tile;  // Tile index.
-    reg [3:0] attrs; // Sprite attributes.
+    bit [7:0] tile;  // Tile index.
+    bit [3:0] attrs; // Sprite attributes.
 } sprite_data_t;
 
 typedef struct packed {
@@ -90,5 +90,96 @@ module sprite_chain(
         else if (load) begin
             oam_addr <= oam_addr + 1'b1;
             if (~oam_addr[0]) oam_buf <= oam_d_in;
+        end
+endmodule
+
+typedef enum logic [1:0] {
+    S_FETCH_TILE,
+    S_FETCH_DATA_LO,
+    S_FETCH_DATA_HI,
+    S_PUSH_FIFO
+} renderer_state_t;
+
+typedef struct packed {
+    bit ena;
+    bit win_tile_map;
+    bit win_ena;
+    bit bg_win_tile_data;
+    bit bg_tile_map;
+    bit obj_size;
+    bit obj_ena;
+    bit bg_ena;
+} lcdc_t;
+
+module scanline_renderer(
+    input wire clk, ce, rst,
+    input wire [7:0] ly, scx, scy, wx, wy, wlc,
+    input wire wlc_valid,
+    input lcdc_t lcdc,
+    output logic [6:0] oam_addr,
+    input wire [15:0] oam_in,
+    output logic [12:0] vram_addr,
+    input wire [7:0] vram_in
+);
+    // ~ Internal registers and state ~
+    renderer_state_t state;
+    reg [7:0] lx;
+    reg in_window; // Latched true by `window_start`.
+    reg reset_fetcher;
+
+    reg [7:0] tile_id, data_lo, data_hi; // Buffers.
+
+    // Calculations:
+    reg [7:0] bg_x, bg_y, win_x;
+    assign bg_y = ly + scy, bg_x = lx + scx;
+    assign win_x = lx - (wx - 8'd7);
+
+    reg [12:0] bg_map_addr, win_map_addr;
+    assign bg_map_addr = {2'b11, lcdc.bg_tile_map, bg_y[7:3], bg_x[7:3]};
+    assign win_map_addr = {2'b11, lcdc.win_tile_map, ly[7:3], lx[7:3]};
+
+    reg [1:0] bg_block;
+    reg [11:0] obj_data_addr, bg_data_addr, data_addr;
+    assign obj_data_addr = {2'b00, sprite.tile, sprite.dy};
+    assign bg_block = tile_id[7] ? 2'b01 : (lcdc.bg_win_tile_data ? 2'b00 : 2'b10);
+    assign bg_data_addr = {bg_block, tile_id, in_window ? wlc[2:0] : bg_y[2:0]};
+    assign data_addr = draw_sprite ? obj_data_addr : bg_data_addr;
+
+    reg window_start;
+    assign window_start = lcdc.win_ena && wlc_valid && ~|win_x;
+
+    // ~ Sprites ~
+    reg sprite_load, sprite_query, draw_sprite;
+    sprite_data_t sprite;
+    sprite_chain sprites (
+        .clk(clk), .rst(rst), .load(sprite_load), .query(sprite_query),
+        .ly(ly), .lx(lx),
+        .oam_addr(oam_addr),
+        .oam_d_in(oam_in),
+        .cfg_tall_sprites(lcdc.obj_size),
+        .d_out(sprite),
+        .d_valid(draw_sprite)
+    );
+
+    // ~ Fetcher ~
+    always_comb begin
+        case (state)
+            S_FETCH_TILE: vram_addr = in_window ? win_map_addr : bg_map_addr;
+            S_FETCH_DATA_LO: vram_addr = {data_addr, 1'b0};
+            S_FETCH_DATA_HI: vram_addr = {data_addr, 1'b1};
+            default: vram_addr = 'x;
+        endcase
+    end
+
+    always_ff @(posedge clk)
+        if (~rst) begin lx <= 0; in_window <= 0; state <= S_FETCH_TILE; end
+        else if (ce) begin
+            case (state)
+                S_FETCH_TILE: tile_id <= vram_in;
+                S_FETCH_DATA_LO: data_lo <= vram_in;
+                S_FETCH_DATA_HI: data_hi <= vram_in;
+            endcase
+            if (reset_fetcher) state <= S_FETCH_TILE;
+            else if (state != S_PUSH_FIFO) state <= state + 1'b1;
         end
 endmodule
