@@ -142,12 +142,15 @@ module scanline_renderer(
     output logic [6:0] oam_addr,
     input wire [15:0] oam_in,
     output logic [12:0] vram_addr,
-    input wire [7:0] vram_in
+    input wire [7:0] vram_in,
+    output logic draw_pixel,
+    output logic [1:0] pixel_color,
+    output logic sprites_loaded, done
 );
     // ~ Internal registers and state ~
     renderer_state_t state;
     reg [7:0] lx;
-    reg in_window, had_sprite;
+    reg in_window, in_sprite;
     reg reset_fetcher, push_obj_fifo, push_bg_fifo;
 
     // Buffers:
@@ -167,7 +170,7 @@ module scanline_renderer(
     assign obj_data_addr = {2'b00, sprite.tile, sprite.dy};
     assign bg_block = tile_id[7] ? 2'b01 : (lcdc.bg_win_tile_data ? 2'b00 : 2'b10);
     assign bg_data_addr = {bg_block, tile_id, in_window ? wlc[2:0] : bg_y[2:0]};
-    assign data_addr = had_sprite ? obj_data_addr : bg_data_addr;
+    assign data_addr = in_sprite ? obj_data_addr : bg_data_addr;
 
     reg window_start;
     assign window_start = lcdc.win_ena && wlc_valid && ~|win_x;
@@ -176,7 +179,7 @@ module scanline_renderer(
     wire [1:0] obj_color;
     wire no_obj;
     fifo_m obj_fifo (
-        .clk(clk), .rst(rst), .load(push_obj_fifo), .pop(1'b1),
+        .clk(clk), .rst(rst), .load(push_obj_fifo), .pop(draw_pixel),
         .hi_in(data_hi), .lo_in(data_lo),
         .color(obj_color),
         .empty(no_obj)
@@ -185,17 +188,25 @@ module scanline_renderer(
     wire [1:0] bg_color;
     wire no_bg;
     fifo_m bg_fifo (
-        .clk(clk), .rst(rst), .load(push_bg_fifo), .pop(1'b1),
+        .clk(clk), .rst(rst), .load(push_bg_fifo), .pop(draw_pixel),
         .hi_in(data_hi), .lo_in(data_lo),
         .color(bg_color),
         .empty(no_bg)
     );
 
+    assign draw_pixel = (~no_obj | ~lcdc.obj_ena | (~in_sprite & ~has_sprite)) & (~no_bg | ~lcdc.bg_ena);
+    always_comb case ({no_obj, no_bg})
+        2'b00: pixel_color = ~|obj_color ? bg_color : obj_color;
+        2'b01: pixel_color = obj_color;
+        2'b10: pixel_color = bg_color;
+        2'b11: pixel_color = 'x;
+    endcase
+
     // ~ Sprites ~
     reg has_sprite;
     sprite_data_t sprite;
     sprite_chain sprites (
-        .clk(clk), .rst(rst), .load(lcdc.obj_ena), .query(~has_sprite | push_obj_fifo),
+        .clk(clk), .rst(rst), .load(~sprites_loaded), .query(~has_sprite | push_obj_fifo),
         .ly(ly), .lx(lx),
         .oam_addr(oam_addr),
         .oam_d_in(oam_in),
@@ -205,7 +216,7 @@ module scanline_renderer(
     );
 
     // ~ Fetcher ~
-    assign reset_fetcher = (window_start && ~in_window) || push_obj_fifo || push_bg_fifo || (has_sprite && ~had_sprite);
+    assign reset_fetcher = (window_start && ~in_window) || push_obj_fifo || push_bg_fifo || (has_sprite && ~in_sprite);
     always_comb begin
         vram_addr = 'x;
         push_obj_fifo = 0; push_bg_fifo = 0;
@@ -214,22 +225,29 @@ module scanline_renderer(
             S_FETCH_DATA_LO: vram_addr = {data_addr, 1'b0};
             S_FETCH_DATA_HI: vram_addr = {data_addr, 1'b1};
             S_PUSH_FIFO: begin
-                push_obj_fifo = had_sprite;
-                push_bg_fifo = ~had_sprite && no_bg;
+                push_obj_fifo = in_sprite;
+                push_bg_fifo = ~in_sprite && no_bg;
             end
         endcase
     end
 
     always_ff @(posedge clk)
-        if (~rst) begin lx <= 0; in_window <= 0; state <= S_FETCH_TILE; end
+        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; end
         else if (ce) begin
             case (state)
                 S_FETCH_TILE: tile_id <= vram_in;
                 S_FETCH_DATA_LO: data_lo <= vram_in;
                 S_FETCH_DATA_HI: data_hi <= vram_in;
             endcase
-            had_sprite <= has_sprite;
+
+            in_sprite <= has_sprite;
+
             if (reset_fetcher) state <= S_FETCH_TILE;
             else if (state != S_PUSH_FIFO) state <= state + 1'b1;
+
+            if (~sprites_loaded && oam_addr == 7'd79) sprites_loaded <= 1;
+
+            if (draw_pixel) lx <= lx + 1'b1;
+            if (lx == 8'd159) done <= 1;
         end
 endmodule
