@@ -200,7 +200,7 @@ module scanline_renderer(
     wire [1:0] obj_color;
     wire no_obj;
     fifo_m obj_fifo (
-        .clk(clk), .rst(rst), .load(push_obj_fifo), .pop(draw_pixel),
+        .clk(clk), .rst(rst), .load(push_obj_fifo & ce), .pop(draw_pixel & ce),
         .hi_in(data_hi), .lo_in(data_lo),
         .color(obj_color),
         .empty(no_obj)
@@ -209,13 +209,13 @@ module scanline_renderer(
     wire [1:0] bg_color;
     wire no_bg;
     fifo_m bg_fifo (
-        .clk(clk), .rst(rst), .load(push_bg_fifo), .pop(draw_pixel),
+        .clk(clk), .rst(rst), .load(push_bg_fifo & ce), .pop(draw_pixel & ce),
         .hi_in(data_hi), .lo_in(data_lo),
         .color(bg_color),
         .empty(no_bg)
     );
 
-    assign draw_pixel = ~has_sprite & ~in_sprite & (~no_obj | ~lcdc.obj_ena) & (~no_bg | ~lcdc.bg_ena);
+    assign draw_pixel = ce & ~done & ~has_sprite & ~in_sprite & (~no_bg | ~lcdc.bg_ena);
     always_comb case ({no_obj, no_bg})
         2'b00: pixel_color = ~|obj_color ? bg_color : obj_color;
         2'b01: pixel_color = obj_color;
@@ -239,7 +239,7 @@ module scanline_renderer(
     // ~ Fetcher ~
     assign reset_fetcher = (window_start && ~in_window) || push_obj_fifo || push_bg_fifo || (has_sprite && ~in_sprite);
     always_comb begin
-        vram_addr = 'x;
+        vram_addr = 0;
         push_obj_fifo = 0; push_bg_fifo = 0;
         case (state)
             S_FETCH_TILE: vram_addr = in_window ? win_map_addr : bg_map_addr;
@@ -256,7 +256,7 @@ module scanline_renderer(
         if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; ce <= 0; end
         else begin
             ce <= ~ce;
-            if (ce) begin
+            if (ce && ~done) begin
                 case (state)
                     S_FETCH_TILE: tile_id <= vram_in;
                     S_FETCH_DATA_LO: data_lo <= vram_in;
@@ -354,7 +354,7 @@ module ppu_m (
         .clk(~clk),
         .oce(1'b0),
         .ce(1'b1),
-        .reset(~rst),
+        .reset(1'b0),
         .wre(vram_write),
         .ad(vram_addr),
         .din(d_wr)
@@ -368,10 +368,10 @@ module ppu_m (
     oam_sdpb oam_block (
         .clka(~clk),
         .cea(oam_write),
-        .reseta(~rst),
+        .reseta(1'b0),
         .clkb(~clk),
         .ceb(1'b1),
-        .resetb(~rst),
+        .resetb(1'b0),
         .oce(1'b0),
         .ada(oam_addr_in),
         .din(d_wr),
@@ -379,7 +379,7 @@ module ppu_m (
         .dout(oam_db)
     );
 
-    assign rst = ~lcdc.ena;
+    assign rst = lcdc.ena;
     assign restart_frame = ~rst | ly == 8'd153;
     always_ff @(posedge clk) begin
         phase_prev <= phase;
