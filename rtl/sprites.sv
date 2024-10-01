@@ -1,3 +1,5 @@
+`default_nettype none
+
 typedef struct packed {
     bit [2:0] dy;    // Y offset within the sprite block (for current ly.)
     bit [7:0] tile;  // Tile index.
@@ -18,7 +20,7 @@ typedef struct packed {
 } oam_entry_t;
 
 module sprite_slot(
-    input wire clk, rst, load, next,
+    input wire clk, rst, load,
     input sprite_bus_t prev_in,
     output sprite_bus_t next_out
 );
@@ -42,7 +44,7 @@ module sprite_slot(
             data <= prev_in.data;
         end
         // After being chosen in query mode, mark slot as empty to give others a turn.
-        else if (chosen && next) ready <= 0;
+        else if (chosen) ready <= 0;
 
 endmodule
 
@@ -58,7 +60,7 @@ module sprite_chain(
     wire sprite_bus_t bus_in, bus_out;
     wire sprite_bus_t [0:8] bus;
     sprite_slot slots [0:9] (
-        .clk(clk), .rst(rst), .load(load), .next(next),
+        .clk(clk), .rst(rst), .load(load),
         .prev_in({bus_in, bus}),
         .next_out({bus, bus_out})
     );
@@ -110,6 +112,24 @@ typedef struct packed {
     bit obj_ena;
     bit bg_ena;
 } lcdc_t;
+
+typedef enum logic [1:0] {
+    PHASE_HBLANK,
+    PHASE_VBLANK,
+    PHASE_OAM_SCAN,
+    PHASE_DRAW
+} ppu_phase_t;
+
+typedef enum logic [3:0] {
+    LCDC    = 4'h0,
+    STAT    = 4'h1,
+    SCY     = 4'h2,
+    SCX     = 4'h3,
+    LY      = 4'h4,
+    BGP     = 4'h7,
+    WY      = 4'ha,
+    WX      = 4'hb
+} ppu_reg_t;
 
 module fifo_m(
     input wire clk, rst, load, pop,
@@ -251,3 +271,140 @@ module scanline_renderer(
             if (lx == 8'd159) done <= 1;
         end
 endmodule
+
+module ppu_m (
+    input wire clk,
+    input wire [7:0] d_wr,
+    // Regs:
+    input wire [3:0] reg_addr,
+    output logic [7:0] reg_d_rd,
+    input wire reg_write,
+    // OAM:
+    input wire [7:0] oam_addr_in,
+    output logic [7:0] oam_d_rd,
+    input wire oam_write,
+    // VRAM:
+    input wire [12:0] vram_addr_in,
+    output logic [7:0] vram_d_rd,
+    input wire vram_write_in,
+    // Display:
+    output wire lcd_hsync, lcd_vsync, lcd_pixel,
+    output wire [1:0] lcd_color,
+    // IRQ:
+    output logic irq_vblank
+);
+    // ~ Regs ~
+    // Internal:
+    reg [7:0] ly, wlc;
+    reg wlc_valid;
+    reg rst;
+    reg frame_done, restart_frame;
+    reg [8:0] dot_ctr;
+    ppu_phase_t phase, phase_prev;
+
+    // External:
+    lcdc_t lcdc;
+    reg [7:0] scy, scx, bgp, wx, wy;
+    always_comb case (reg_addr)
+        LCDC: reg_d_rd = lcdc;
+        SCY: reg_d_rd = scy;
+        SCX: reg_d_rd = scx;
+        LY: reg_d_rd = ly;
+        BGP: reg_d_rd = bgp;
+        WX: reg_d_rd = wx;
+        WY: reg_d_rd = wy;
+        default: reg_d_rd = 'x;
+    endcase
+    always_ff @(posedge clk) if (reg_write) case (ppu_reg_t'(reg_addr))
+        LCDC: lcdc <= d_wr;
+        SCY: scy <= d_wr;
+        SCX: scx <= d_wr;
+        BGP: bgp <= d_wr;
+        WX: wx <= d_wr;
+        WY: wy <= d_wr;
+    endcase
+
+    wire [6:0] oam_addr_rd;
+    wire [12:0] renderer_vram_addr;
+    wire scanline_loaded, scanline_done;
+    scanline_renderer renderer(
+        .clk(clk), .rst(|dot_ctr),
+        .ly(ly), .scx(scx), .scy(scy), .wx(wx), .wy(wy), .wlc(wlc),
+        .wlc_valid(wlc_valid),
+        .lcdc(lcdc),
+        .oam_addr(oam_addr_rd),
+        .oam_in(oam_db),
+        .vram_addr(renderer_vram_addr),
+        .vram_in(vram_d_rd),
+        .draw_pixel(lcd_pixel),
+        .pixel_color(lcd_color),
+        .sprites_loaded(scanline_loaded), .done(scanline_done)
+    );
+
+    // VRAM:
+    reg [12:0] vram_addr;
+    reg vram_write;
+
+    sp_8192w_8b vram_block (
+        .dout(vram_d_rd),
+        .clk(~clk),
+        .oce(1'b0),
+        .ce(1'b1),
+        .reset(~rst),
+        .wre(vram_write),
+        .ad(vram_addr),
+        .din(d_wr)
+    );
+
+    // OAM:
+    reg [7:0] oam_write_addr;
+    reg [6:0] oam_read_addr;
+    wire [15:0] oam_db;
+    assign oam_d_rd = oam_addr_in[0] ? oam_db[15:8] : oam_db[7:0];
+    oam_sdpb oam_block (
+        .clka(~clk),
+        .cea(oam_write),
+        .reseta(~rst),
+        .clkb(~clk),
+        .ceb(1'b1),
+        .resetb(~rst),
+        .oce(1'b0),
+        .ada(oam_addr_in),
+        .din(d_wr),
+        .adb(oam_addr_in[7:1]),
+        .dout(oam_db)
+    );
+
+    assign rst = ~lcdc.ena;
+    assign restart_frame = ~rst | ly == 8'd153;
+    always_ff @(posedge clk) begin
+        phase_prev <= phase;
+        if (restart_frame) begin
+            dot_ctr <= 0;
+            ly <= 0;
+            wlc <= 0; wlc_valid <= 0;
+            frame_done = 0;
+        end else if (dot_ctr == 9'd455) begin
+            dot_ctr <= 0;
+            ly <= ly + 1'b1;
+            frame_done <= frame_done | (ly == 8'd143);
+        end else dot_ctr <= dot_ctr + 1'b1;
+    end
+
+    always_comb
+        if (frame_done) phase = PHASE_VBLANK;
+        else if (scanline_done) phase = PHASE_HBLANK;
+        else if (scanline_loaded) phase = PHASE_DRAW;
+        else phase = PHASE_OAM_SCAN;
+
+    assign lcd_hsync = phase == PHASE_HBLANK;
+    assign lcd_vsync = phase == PHASE_VBLANK;
+    assign irq_vblank = phase_prev != phase && phase == PHASE_VBLANK;
+
+    always_comb case (phase)
+        PHASE_DRAW: begin vram_addr = renderer_vram_addr; vram_write = 0; end
+        default: begin vram_addr = vram_addr_in; vram_write = vram_write_in; end
+    endcase
+endmodule
+
+`default_nettype wire
