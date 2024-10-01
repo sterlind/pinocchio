@@ -18,7 +18,7 @@ typedef struct packed {
 } oam_entry_t;
 
 module sprite_slot(
-    input wire clk, rst, load,
+    input wire clk, rst, load, next,
     input sprite_bus_t prev_in,
     output sprite_bus_t next_out
 );
@@ -42,7 +42,7 @@ module sprite_slot(
             data <= prev_in.data;
         end
         // After being chosen in query mode, mark slot as empty to give others a turn.
-        else if (chosen) ready <= 0;
+        else if (chosen && next) ready <= 0;
 
 endmodule
 
@@ -58,12 +58,12 @@ module sprite_chain(
     wire sprite_bus_t bus_in, bus_out;
     wire sprite_bus_t [0:8] bus;
     sprite_slot slots [0:9] (
-        .clk(clk), .rst(rst), .load(load),
+        .clk(clk), .rst(rst), .load(load), .next(next),
         .prev_in({bus_in, bus}),
         .next_out({bus, bus_out})
     );
 
-    assign d_out = bus_out.data, d_valid = bus_out.bypass;
+    assign d_out = bus_out.data, d_valid = ~load && query && bus_out.bypass;
 
     // Buffer the first word of OAM, so we can assemble the whole entry before storing it in a slot.
     reg [15:0] oam_buf; 
@@ -82,7 +82,7 @@ module sprite_chain(
     assign bus_in = load
         // During load, fill slots with OAM data. Bypass all slots if sprite is out of range or not yet buffered.
         ? {entry.x, {dy_corr[2:0], tile, entry.attrs[7:4]}, ~(visible & oam_addr[0])}
-        // Otherwise, send a query through, bypassing if query mode isn't active.
+        // Otherwise, send a query through.
         : {lx, sprite_data_t'('x), ~query};
 
     always_ff @(posedge clk)
@@ -111,6 +111,29 @@ typedef struct packed {
     bit bg_ena;
 } lcdc_t;
 
+module fifo_m(
+    input wire clk, rst, load, pop,
+    input wire [7:0] hi_in, lo_in,
+    output logic [1:0] color,
+    output logic empty
+);
+    reg [7:0] hi, lo;
+    reg [7:0] filled;
+
+    assign empty = ~filled[7];
+    assign color = {hi[7], lo[7]};
+    always_ff @(posedge clk)
+        if (~rst) filled <= 8'b0;
+        else if (load) begin
+            {hi, lo} <= {hi_in, lo_in};
+            filled <= 8'hff;
+        end else if (pop) begin
+            filled <= {filled[6:0], 1'b0};
+            hi <= {hi[6:0], 1'b0};
+            lo <= {lo[6:0], 1'b0};
+        end
+endmodule
+
 module scanline_renderer(
     input wire clk, ce, rst,
     input wire [7:0] ly, scx, scy, wx, wy, wlc,
@@ -124,10 +147,11 @@ module scanline_renderer(
     // ~ Internal registers and state ~
     renderer_state_t state;
     reg [7:0] lx;
-    reg in_window; // Latched true by `window_start`.
-    reg reset_fetcher;
+    reg in_window, had_sprite;
+    reg reset_fetcher, push_obj_fifo, push_bg_fifo;
 
-    reg [7:0] tile_id, data_lo, data_hi; // Buffers.
+    // Buffers:
+    reg [7:0] tile_id, data_lo, data_hi;
 
     // Calculations:
     reg [7:0] bg_x, bg_y, win_x;
@@ -143,31 +167,56 @@ module scanline_renderer(
     assign obj_data_addr = {2'b00, sprite.tile, sprite.dy};
     assign bg_block = tile_id[7] ? 2'b01 : (lcdc.bg_win_tile_data ? 2'b00 : 2'b10);
     assign bg_data_addr = {bg_block, tile_id, in_window ? wlc[2:0] : bg_y[2:0]};
-    assign data_addr = draw_sprite ? obj_data_addr : bg_data_addr;
+    assign data_addr = had_sprite ? obj_data_addr : bg_data_addr;
 
     reg window_start;
     assign window_start = lcdc.win_ena && wlc_valid && ~|win_x;
 
+    // FIFOs:
+    wire [1:0] obj_color;
+    wire no_obj;
+    fifo_m obj_fifo (
+        .clk(clk), .rst(rst), .load(push_obj_fifo), .pop(1'b1),
+        .hi_in(data_hi), .lo_in(data_lo),
+        .color(obj_color),
+        .empty(no_obj)
+    );
+
+    wire [1:0] bg_color;
+    wire no_bg;
+    fifo_m bg_fifo (
+        .clk(clk), .rst(rst), .load(push_bg_fifo), .pop(1'b1),
+        .hi_in(data_hi), .lo_in(data_lo),
+        .color(bg_color),
+        .empty(no_bg)
+    );
+
     // ~ Sprites ~
-    reg sprite_load, sprite_query, draw_sprite;
+    reg has_sprite;
     sprite_data_t sprite;
     sprite_chain sprites (
-        .clk(clk), .rst(rst), .load(sprite_load), .query(sprite_query),
+        .clk(clk), .rst(rst), .load(lcdc.obj_ena), .query(~has_sprite | push_obj_fifo),
         .ly(ly), .lx(lx),
         .oam_addr(oam_addr),
         .oam_d_in(oam_in),
         .cfg_tall_sprites(lcdc.obj_size),
         .d_out(sprite),
-        .d_valid(draw_sprite)
+        .d_valid(has_sprite)
     );
 
     // ~ Fetcher ~
+    assign reset_fetcher = (window_start && ~in_window) || push_obj_fifo || push_bg_fifo || (has_sprite && ~had_sprite);
     always_comb begin
+        vram_addr = 'x;
+        push_obj_fifo = 0; push_bg_fifo = 0;
         case (state)
             S_FETCH_TILE: vram_addr = in_window ? win_map_addr : bg_map_addr;
             S_FETCH_DATA_LO: vram_addr = {data_addr, 1'b0};
             S_FETCH_DATA_HI: vram_addr = {data_addr, 1'b1};
-            default: vram_addr = 'x;
+            S_PUSH_FIFO: begin
+                push_obj_fifo = had_sprite;
+                push_bg_fifo = ~had_sprite && no_bg;
+            end
         endcase
     end
 
@@ -179,6 +228,7 @@ module scanline_renderer(
                 S_FETCH_DATA_LO: data_lo <= vram_in;
                 S_FETCH_DATA_HI: data_hi <= vram_in;
             endcase
+            had_sprite <= has_sprite;
             if (reset_fetcher) state <= S_FETCH_TILE;
             else if (state != S_PUSH_FIFO) state <= state + 1'b1;
         end
