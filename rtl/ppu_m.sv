@@ -173,13 +173,14 @@ module scanline_renderer(
     reg in_window, in_sprite;
     reg reset_fetcher, push_obj_fifo, push_bg_fifo;
     reg ce;
+    reg first_tile;
 
     // Buffers:
     reg [7:0] tile_id, data_lo, data_hi;
 
     // Calculations:
     reg [7:0] bg_x, bg_y, win_x;
-    assign bg_y = ly + scy, bg_x = lx + scx;
+    assign bg_y = ly + scy, bg_x = lx + scx + (first_tile ? 8'd0 : 8'd8);
     assign win_x = lx - (wx - 8'd7);
 
     reg [12:0] bg_map_addr, win_map_addr;
@@ -253,7 +254,7 @@ module scanline_renderer(
     end
 
     always_ff @(posedge clk)
-        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; ce <= 0; end
+        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; ce <= 0; first_tile <= 1; end
         else begin
             ce <= ~ce;
             if (ce && ~done) begin
@@ -263,6 +264,7 @@ module scanline_renderer(
                     S_FETCH_DATA_HI: data_hi <= vram_in;
                 endcase
 
+                if (push_obj_fifo || push_bg_fifo) first_tile <= 0;
                 in_sprite <= has_sprite;
 
                 if (reset_fetcher) state <= S_FETCH_TILE;
