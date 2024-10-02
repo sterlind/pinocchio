@@ -86,7 +86,7 @@ module sprite_chain(
         // During load, fill slots with OAM data. Bypass all slots if sprite is out of range or not yet buffered.
         ? {entry.x, {dy[2:0], tile, entry.attrs[7:4]}, ~(visible & oam_addr[0])}
         // Otherwise, send a query through.
-        : {lx, sprite_data_t'('x), ~query};
+        : {lx, sprite_data_t'('0), ~query};
 
     always_ff @(posedge clk)
         if (~rst) oam_addr <= 0;
@@ -145,7 +145,7 @@ module fifo_m(
     assign color = {hi[7], lo[7]};
     always_ff @(posedge clk)
         if (~rst) filled <= 8'b0;
-        else if (load) begin
+        else if (load /* temp: */ && empty) begin
             {hi, lo} <= {hi_in, lo_in};
             filled <= 8'hff;
         end else if (pop) begin
@@ -173,7 +173,6 @@ module scanline_renderer(
     reg [7:0] lx;
     reg in_window, in_sprite;
     reg reset_fetcher, push_obj_fifo, push_bg_fifo;
-    reg ce;
     reg first_tile;
 
     // Buffers:
@@ -199,26 +198,27 @@ module scanline_renderer(
     assign window_start = lcdc.win_ena && wlc_valid && ~|win_x;
 
     // FIFOs:
-    wire [1:0] obj_color;
+    wire [1:0] obj_color, obj_color_xx;
+    assign obj_color = 2'b11;
     wire no_obj;
     fifo_m obj_fifo (
-        .clk(clk), .rst(rst), .load(push_obj_fifo & ce), .pop(draw_pixel & ce),
+        .clk(clk), .rst(rst), .load(push_obj_fifo), .pop(~no_obj && draw_pixel),
         .hi_in(data_hi), .lo_in(data_lo),
-        .color(obj_color),
+        .color(obj_color_xx),
         .empty(no_obj)
     );
 
     wire [1:0] bg_color;
     wire no_bg;
     fifo_m bg_fifo (
-        .clk(clk), .rst(rst), .load(push_bg_fifo & ce), .pop(draw_pixel & ce),
+        .clk(clk), .rst(rst), .load(push_bg_fifo), .pop(draw_pixel),
         .hi_in(data_hi), .lo_in(data_lo),
         .color(bg_color),
         .empty(no_bg)
     );
 
-    assign draw_pixel = ce & ~done & ~has_sprite & ~in_sprite & (~no_bg | ~lcdc.bg_ena);
-    always_comb case ({1'b1, no_bg})
+    assign draw_pixel = ~done & ~has_sprite & ~in_sprite & (~no_bg | ~lcdc.bg_ena);
+    always_comb case ({no_obj, no_bg})
         2'b00: pixel_color = ~|obj_color ? bg_color : obj_color;
         2'b01: pixel_color = obj_color;
         2'b10: pixel_color = bg_color;
@@ -227,14 +227,14 @@ module scanline_renderer(
 
     // ~ Sprites ~
     wire has_sprite;
-    sprite_data_t sprite;
+    sprite_data_t sprite, sprite_out;
     sprite_chain sprites (
         .clk(clk), .rst(rst), .load(~sprites_loaded), .query(~in_sprite | push_obj_fifo),
         .ly(ly), .lx(lx),
         .oam_addr(oam_addr),
         .oam_d_in(oam_in),
         .cfg_tall_sprites(lcdc.obj_size),
-        .d_out(sprite),
+        .d_out(sprite_out),
         .d_valid(has_sprite)
     );
 
@@ -255,28 +255,25 @@ module scanline_renderer(
     end
 
     always_ff @(posedge clk)
-        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; ce <= 0; first_tile <= 1; in_sprite <= 0; end
-        else begin
-            ce <= ~ce;
-            if (ce && ~done) begin
-                case (state)
-                    S_FETCH_TILE: tile_id <= vram_in;
-                    S_FETCH_DATA_LO: data_lo <= vram_in;
-                    S_FETCH_DATA_HI: data_hi <= vram_in;
-                endcase
+        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; first_tile <= 1; in_sprite <= 0; end
+        else if (~done) begin
+            case (state)
+                S_FETCH_TILE: tile_id <= vram_in;
+                S_FETCH_DATA_LO: data_lo <= vram_in;
+                S_FETCH_DATA_HI: data_hi <= vram_in;
+            endcase
 
-                if (push_obj_fifo || push_bg_fifo) first_tile <= 0;
-                if (push_obj_fifo) in_sprite <= 0;
-                else if (has_sprite) in_sprite <= 1;
+            if (push_obj_fifo || push_bg_fifo) first_tile <= 0;
+            if (push_obj_fifo) in_sprite <= 0;
+            else if (has_sprite) begin in_sprite <= 1; sprite <= sprite_out; end
 
-                if (reset_fetcher) state <= S_FETCH_TILE;
-                else if (state != S_PUSH_FIFO) state <= renderer_state_t'(state + 1'b1);
+            if (reset_fetcher) state <= S_FETCH_TILE;
+            else if (state != S_PUSH_FIFO) state <= renderer_state_t'(state + 1'b1);
 
-                if (~sprites_loaded && oam_addr == 7'd79) sprites_loaded <= 1;
+            if (~sprites_loaded && oam_addr == 7'd79) sprites_loaded <= 1;
 
-                if (draw_pixel) lx <= lx + 1'b1;
-                if (lx == 8'd159) done <= 1;
-            end
+            if (draw_pixel) lx <= lx + 1'b1;
+            if (lx == 8'd159) done <= 1;
         end
 endmodule
 
@@ -365,14 +362,13 @@ module ppu_m (
     );
 
     // OAM:
-    reg [7:0] oam_write_addr;
-    reg [6:0] oam_read_addr;
     wire [15:0] oam_db;
     assign oam_d_rd = oam_addr_in[0] ? oam_db[15:8] : oam_db[7:0];
+/*
     oam_sdpb oam_block (
         .clka(~clk),
-        .cea(oam_write),
-        .reseta(1'b0),
+        .cea(1'b1),
+        .reseta(oam_write),
         .clkb(~clk),
         .ceb(1'b1),
         .resetb(1'b0),
@@ -381,6 +377,25 @@ module ppu_m (
         .din(d_wr),
         .adb(oam_addr_in[7:1]),
         .dout(oam_db)
+    );
+*/
+
+    oam_dpb oam_block(
+        .doutb(oam_db), //output [15:0] doutb
+        .clka(~clk), //input clka
+        .ocea(1'b0), //input ocea
+        .cea(1'b1), //input cea
+        .reseta(1'b0), //input reseta
+        .wrea(oam_write), //input wrea
+        .clkb(~clk), //input clkb
+        .oceb(1'b0), //input oceb
+        .ceb(1'b1), //input ceb
+        .resetb(1'b0), //input resetb
+        .wreb(1'b0), //input wreb
+        .ada(oam_addr_in), //input [7:0] ada
+        .dina(d_wr), //input [7:0] dina
+        .adb(oam_addr_rd), //input [6:0] adb
+        .dinb(16'b0) //input [15:0] dinb
     );
 
     assign rst = lcdc.ena;

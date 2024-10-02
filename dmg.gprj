@@ -9,6 +9,7 @@
         <File path="rtl/blocks/cart_prom.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/dpb_fbram.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/gclkdiv4.v" type="file.verilog" enable="1"/>
+        <File path="rtl/blocks/oam_dpb.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/oam_sdpb.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/sp_8192w_8b.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/tclk_pll.v" type="file.verilog" enable="1"/>
