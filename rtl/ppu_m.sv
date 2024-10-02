@@ -266,8 +266,8 @@ module scanline_renderer(
                 endcase
 
                 if (push_obj_fifo || push_bg_fifo) first_tile <= 0;
-                if (has_sprite) in_sprite <= 1;
-                else if (push_obj_fifo) in_sprite <= 0;
+                if (push_obj_fifo) in_sprite <= 0;
+                else if (has_sprite) in_sprite <= 1;
 
                 if (reset_fetcher) state <= S_FETCH_TILE;
                 else if (state != S_PUSH_FIFO) state <= renderer_state_t'(state + 1'b1);
