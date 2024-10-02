@@ -30,21 +30,22 @@ module sprite_slot(
 
     // We're chosen for a query if we're the first valid slot with a matching x in the chain.
     // If chosen, we push our data the bus and set bypass.
-    reg chosen;
-    assign chosen = ~load & ~rst & ~prev_in.bypass & ready & (x == prev_in.x);
-    assign next_out = ~chosen ? prev_in : {8'bx, data, 1'b1};
+    reg chosen_query, chosen_load;
+    assign chosen_load = load & ~ready & ~prev_in.bypass;
+    assign chosen_query = ~load & ready & ~prev_in.bypass & (x == prev_in.x);
+    assign next_out = (chosen_load | chosen_query) ? {8'bx, data, 1'b1} : prev_in;
 
     always_ff @(posedge clk)
         // Reset is simple: just mark slot as empty.
         if (~rst) ready <= 0;
         // It's our turn to load if we're not yet ready but all previous slots were.
-        else if (load & ~ready & ~prev_in.bypass) begin
+        else if (chosen_load) begin
             ready <= 1;
             x <= prev_in.x;
             data <= prev_in.data;
         end
         // After being chosen in query mode, mark slot as empty to give others a turn.
-        else if (chosen) ready <= 0;
+        else if (chosen_query) ready <= 0;
 
 endmodule
 
@@ -74,16 +75,16 @@ module sprite_chain(
 
     // Calculate y offset within sprite, and check if it's visible on this scan line.
     reg [7:0] dy, tile;
-    reg [3:0] dy_corr;
+    //reg [3:0] dy_corr;
     assign dy = ly - (entry.y - 8'd16);
-    assign dy_corr = entry.attrs[6] ? ~dy[3:0] : dy[3:0]; 
+    //assign dy_corr = entry.attrs[6] ? ~dy[3:0] : dy[3:0]; 
     reg visible;
     assign visible = cfg_tall_sprites ? ~|dy[7:4] : ~|dy[7:3];
-    assign tile = cfg_tall_sprites ? {entry.tile[7:1], dy_corr[3]} : entry.tile;
+    assign tile = cfg_tall_sprites ? {entry.tile[7:1], dy[3]} : entry.tile;
 
     assign bus_in = load
         // During load, fill slots with OAM data. Bypass all slots if sprite is out of range or not yet buffered.
-        ? {entry.x, {dy_corr[2:0], tile, entry.attrs[7:4]}, ~(visible & oam_addr[0])}
+        ? {entry.x, {dy[2:0], tile, entry.attrs[7:4]}, ~(visible & oam_addr[0])}
         // Otherwise, send a query through.
         : {lx, sprite_data_t'('x), ~query};
 
@@ -217,11 +218,11 @@ module scanline_renderer(
     );
 
     assign draw_pixel = ce & ~done & ~has_sprite & ~in_sprite & (~no_bg | ~lcdc.bg_ena);
-    always_comb case ({no_obj, no_bg})
+    always_comb case ({1'b1, no_bg})
         2'b00: pixel_color = ~|obj_color ? bg_color : obj_color;
         2'b01: pixel_color = obj_color;
         2'b10: pixel_color = bg_color;
-        2'b11: pixel_color = 'x;
+        2'b11: pixel_color = 2'b00;
     endcase
 
     // ~ Sprites ~
@@ -254,7 +255,7 @@ module scanline_renderer(
     end
 
     always_ff @(posedge clk)
-        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; ce <= 0; first_tile <= 1; end
+        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; ce <= 0; first_tile <= 1; in_sprite <= 0; end
         else begin
             ce <= ~ce;
             if (ce && ~done) begin
@@ -265,7 +266,8 @@ module scanline_renderer(
                 endcase
 
                 if (push_obj_fifo || push_bg_fifo) first_tile <= 0;
-                in_sprite <= has_sprite;
+                if (has_sprite) in_sprite <= 1;
+                else if (push_obj_fifo) in_sprite <= 0;
 
                 if (reset_fetcher) state <= S_FETCH_TILE;
                 else if (state != S_PUSH_FIFO) state <= renderer_state_t'(state + 1'b1);
