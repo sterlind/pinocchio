@@ -237,7 +237,7 @@ module scanline_renderer(
     );
 
     // ~ Fetcher ~
-    assign reset_fetcher = (window_start && ~in_window) || push_obj_fifo || push_bg_fifo || (has_sprite && ~in_sprite);
+    assign reset_fetcher = (window_start && ~in_window) || push_obj_fifo || push_bg_fifo || (has_sprite && ~in_sprite) || ~sprites_loaded;
     always_comb begin
         vram_addr = 0;
         push_obj_fifo = 0; push_bg_fifo = 0;
@@ -332,7 +332,7 @@ module ppu_m (
     wire [12:0] renderer_vram_addr;
     wire scanline_loaded, scanline_done;
     scanline_renderer renderer(
-        .clk(clk), .rst(|dot_ctr),
+        .clk(clk), .rst(|dot_ctr & ~frame_done),
         .ly(ly), .scx(scx), .scy(scy), .wx(wx), .wy(wy), .wlc(wlc),
         .wlc_valid(wlc_valid),
         .lcdc(lcdc),
@@ -380,7 +380,7 @@ module ppu_m (
     );
 
     assign rst = lcdc.ena;
-    assign restart_frame = ~rst | ly == 8'd153;
+    assign restart_frame = ~rst | ly == 8'd154;
     always_ff @(posedge clk) begin
         phase_prev <= phase;
         if (restart_frame) begin
