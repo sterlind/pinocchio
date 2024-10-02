@@ -36,12 +36,13 @@ module dmg_main(
     reg [7:0] irq;
     assign irq = {7'b0, irq_vblank};
 
-    reg [7:0] bus_in, cpu_d_out;
+    reg [7:0] bus_in, bus_out, cpu_d_out;
     wire [15:0] cpu_addr, bus_addr , dma_src_addr;
     reg bus_write, cpu_write;
     reg dma_active;
     assign bus_addr = dma_active ? dma_src_addr : cpu_addr;
     assign bus_write = dma_active ? 0 : cpu_write;
+    assign bus_out = dma_active ? bus_in : cpu_d_out;
     sm83 cpu (
         .clk(clk),
         .ce(cpu_ce),
@@ -57,7 +58,7 @@ module dmg_main(
     wire [7:0] reg_d_rd, vram_d_rd, oam_d_rd;
     ppu_m ppu (
         .clk(clk),
-        .d_wr(cpu_d_out),
+        .d_wr(bus_out),
         .reg_addr(bus_addr[3:0]),
         .reg_d_rd(reg_d_rd),
         .reg_write(ppu_reg_write),
@@ -80,11 +81,11 @@ module dmg_main(
         .dout(wram_d_rd),
         .clk(~clk),
         .oce(1'b0),
-        .ce(cpu_ce),
+        .ce(1'b1),
         .reset(~rst),
         .wre(wram_write),
         .ad(bus_addr[12:0]),
-        .din(cpu_d_out)
+        .din(bus_out)
     );
 
     reg hide_boot;
@@ -102,14 +103,17 @@ module dmg_main(
     reg [7:0] dma_idx;
     assign dma_active = dma_idx != 8'h9f;
     assign dma_src_addr = {dma_base, dma_idx};
-
+    reg triggered /* synthesis syn_keep=1 */;
     always_ff @(negedge clk)
-        if (~rst) begin hide_boot <= 0; dma_base <= 8'hff; dma_idx <= 8'h9f; end
+        if (~rst) begin hide_boot <= 0; dma_base <= 8'hff; dma_idx <= 8'h9f; triggered <= 0; end
         else begin
-            if (bus_write) case (bus_addr)
-                HIDEROM: hide_boot <= hide_boot | (|cpu_d_out);
-                OAM_DMA: begin dma_base <= cpu_d_out; dma_idx <= 8'b0; end
-            endcase
+            triggered <= 0;
+            if (bus_write) begin
+                case (bus_addr)
+                    HIDEROM: hide_boot <= hide_boot | (|bus_out);
+                    OAM_DMA: begin dma_base <= bus_out; dma_idx <= 8'b0; triggered <= 1; end
+                endcase
+            end
             if (dma_active) dma_idx <= dma_idx + 1'b1;
         end
 

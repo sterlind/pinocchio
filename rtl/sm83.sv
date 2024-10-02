@@ -541,14 +541,14 @@ module sm83(
     input wire ce,
     input wire rst,
     input wire [7:0] irq_in,
-    output reg [15:0] addr /* synthesis syn_keep=1 */,
-    input wire [7:0] d_in_ext /* synthesis syn_keep=1 */,
-    output wire [7:0] d_out /* synthesis syn_keep=1 */,
+    output reg [15:0] addr,
+    input wire [7:0] d_in_ext,
+    output wire [7:0] d_out,
     output reg write
 );
-    reg [15:0] ab /* synthesis syn_keep=1*/;
+    reg [15:0] ab;
     reg [7:0] db;
-    reg [7:0] rf /* synthesis syn_preserve=1 */ [`MIN_REG8:`MAX_REG8];
+    reg [7:0] rf [`MIN_REG8:`MAX_REG8];
     flags_t flags;
 
     reg [7:0] d_in;
@@ -624,16 +624,17 @@ module sm83(
 
     reg write_ie, write_if;
     reg [7:0] ie_rd, if_rd;
+    reg should_write;
     always_comb begin
-        hram_write = 0; write_ie = 0; write_if = 0; d_in = d_in_ext;
-        if (~rst) write = 0;
+        hram_write = 0; write_ie = 0; write_if = 0; d_in = d_in_ext; write = 0;
+        if (~rst) should_write = 0;
         else begin
-            write = c_t_db == MEM;
+            should_write = c_t_db == MEM;
             casex (addr)
-                IE: begin write_ie = write; d_in = ie_rd; end
-                IF: begin write_if = write; d_in = if_rd; end
-                HRAM: begin hram_write = write; d_in = hram_rd; end
-                default: d_in = d_in_ext;
+                IE: begin write_ie = should_write; d_in = ie_rd; end
+                IF: begin write_if = should_write; d_in = if_rd; end
+                HRAM: begin hram_write = should_write; d_in = hram_rd; end
+                default: begin d_in = d_in_ext; write = should_write; end
             endcase
         end
     end

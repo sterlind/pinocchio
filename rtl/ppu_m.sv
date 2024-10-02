@@ -329,7 +329,7 @@ module ppu_m (
         WY: wy <= d_wr;
     endcase
 
-    wire [6:0] oam_addr_rd;
+    wire [6:0] renderer_oam_addr;
     wire [12:0] renderer_vram_addr;
     wire scanline_loaded, scanline_done;
     scanline_renderer renderer(
@@ -337,7 +337,7 @@ module ppu_m (
         .ly(ly), .scx(scx), .scy(scy), .wx(wx), .wy(wy), .wlc(wlc),
         .wlc_valid(wlc_valid),
         .lcdc(lcdc),
-        .oam_addr(oam_addr_rd),
+        .oam_addr(renderer_oam_addr),
         .oam_in(oam_db),
         .vram_addr(renderer_vram_addr),
         .vram_in(vram_d_rd),
@@ -363,23 +363,24 @@ module ppu_m (
 
     // OAM:
     wire [15:0] oam_db;
+    reg [6:0] oam_addr_rd;
     assign oam_d_rd = oam_addr_in[0] ? oam_db[15:8] : oam_db[7:0];
-/*
+    assign oam_addr_rd = phase == PHASE_OAM_SCAN ? renderer_oam_addr : oam_addr_in[7:1];
     oam_sdpb oam_block (
         .clka(~clk),
-        .cea(1'b1),
-        .reseta(oam_write),
+        .cea(oam_write && (frame_done || scanline_done)),
+        .reseta(1'b0),
         .clkb(~clk),
         .ceb(1'b1),
         .resetb(1'b0),
         .oce(1'b0),
         .ada(oam_addr_in),
         .din(d_wr),
-        .adb(oam_addr_in[7:1]),
+        .adb(oam_addr_rd),
         .dout(oam_db)
     );
-*/
 
+/*
     oam_dpb oam_block(
         .doutb(oam_db), //output [15:0] doutb
         .clka(~clk), //input clka
@@ -397,6 +398,7 @@ module ppu_m (
         .adb(oam_addr_rd), //input [6:0] adb
         .dinb(16'b0) //input [15:0] dinb
     );
+*/
 
     assign rst = lcdc.ena;
     assign restart_frame = ~rst | ly == 8'd154;
