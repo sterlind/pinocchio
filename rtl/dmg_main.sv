@@ -103,15 +103,13 @@ module dmg_main(
     reg [7:0] dma_idx;
     assign dma_active = dma_idx != 8'h9f;
     assign dma_src_addr = {dma_base, dma_idx};
-    reg triggered /* synthesis syn_keep=1 */;
-    always_ff @(negedge clk)
-        if (~rst) begin hide_boot <= 0; dma_base <= 8'hff; dma_idx <= 8'h9f; triggered <= 0; end
+    always_ff @(posedge clk)
+        if (~rst) begin hide_boot <= 0; dma_base <= 8'hff; dma_idx <= 8'h9f; end
         else begin
-            triggered <= 0;
             if (bus_write) begin
                 case (bus_addr)
                     HIDEROM: hide_boot <= hide_boot | (|bus_out);
-                    OAM_DMA: begin dma_base <= bus_out; dma_idx <= 8'b0; triggered <= 1; end
+                    OAM_DMA: begin dma_base <= bus_out; dma_idx <= 8'b0; end
                 endcase
             end
             if (dma_active) dma_idx <= dma_idx + 1'b1;

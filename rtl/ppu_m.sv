@@ -84,7 +84,7 @@ module sprite_chain(
 
     assign bus_in = load
         // During load, fill slots with OAM data. Bypass all slots if sprite is out of range or not yet buffered.
-        ? {entry.x, {dy[2:0], tile, entry.attrs[7:4]}, ~(visible & oam_addr[0])}
+        ? {entry.x - 8'd8, {dy[2:0], tile, entry.attrs[7:4]}, ~(visible & oam_addr[0])}
         // Otherwise, send a query through.
         : {lx, sprite_data_t'('0), ~query};
 
@@ -198,13 +198,12 @@ module scanline_renderer(
     assign window_start = lcdc.win_ena && wlc_valid && ~|win_x;
 
     // FIFOs:
-    wire [1:0] obj_color, obj_color_xx;
-    assign obj_color = 2'b11;
+    wire [1:0] obj_color;
     wire no_obj;
     fifo_m obj_fifo (
         .clk(clk), .rst(rst), .load(push_obj_fifo), .pop(~no_obj && draw_pixel),
         .hi_in(data_hi), .lo_in(data_lo),
-        .color(obj_color_xx),
+        .color(obj_color),
         .empty(no_obj)
     );
 
