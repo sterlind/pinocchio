@@ -361,12 +361,13 @@ module ppu_m (
     );
 
     // OAM:
-    wire [15:0] oam_db;
+    wire [15:0] oam_db, oam_dout;
+    assign oam_db = {oam_dout[7:0], oam_dout[15:8]};
     reg [6:0] oam_addr_rd;
     assign oam_d_rd = oam_addr_in[0] ? oam_db[15:8] : oam_db[7:0];
     assign oam_addr_rd = phase == PHASE_OAM_SCAN ? renderer_oam_addr : oam_addr_in[7:1];
     oam_sdpb oam_block (
-        .clka(~clk),
+        .clka(clk),
         .cea(oam_write && (frame_done || scanline_done)),
         .reseta(1'b0),
         .clkb(~clk),
@@ -376,7 +377,7 @@ module ppu_m (
         .ada(oam_addr_in),
         .din(d_wr),
         .adb(oam_addr_rd),
-        .dout(oam_db)
+        .dout(oam_dout)
     );
 
 /*
