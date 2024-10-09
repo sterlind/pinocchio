@@ -25,7 +25,7 @@ module top(
 
     wire [14:0] rom_addr;
     wire [7:0] rom_data;
-    cart_prom cart (
+    cart_test_prom cart (
         .clk(tclk),
         .oce(1'b0),
         .ce(1'b1),

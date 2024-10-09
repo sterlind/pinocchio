@@ -7,6 +7,7 @@
     <FileList>
         <File path="rtl/blocks/boot_prom.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/cart_prom.v" type="file.verilog" enable="1"/>
+        <File path="rtl/blocks/cart_test_prom.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/dpb_fbram.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/gclkdiv4.v" type="file.verilog" enable="1"/>
         <File path="rtl/blocks/oam_dpb.v" type="file.verilog" enable="1"/>
@@ -23,7 +24,8 @@
         <File path="rtl/top.sv" type="file.verilog" enable="1"/>
         <File path="dmg.cst" type="file.cst" enable="1"/>
         <File path="dmg.sdc" type="file.sdc" enable="1"/>
-        <File path="src/dmg.rao" type="file.gao" enable="1"/>
+        <File path="src/dmg.rao" type="file.gao" enable="0"/>
+        <File path="src/sm83.rao" type="file.gao" enable="1"/>
         <File path="misc/tetris.mi" type="file.other" enable="1"/>
     </FileList>
 </Project>
