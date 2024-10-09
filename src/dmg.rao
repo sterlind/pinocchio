@@ -7,43 +7,31 @@
             <Signal capture_enable="true">dmg/ppu/renderer/has_sprite</Signal>
             <Signal capture_enable="true">dmg/ppu/renderer/rst</Signal>
             <Signal capture_enable="true">dmg/ppu/renderer/sprites_loaded</Signal>
-            <Bus capture_enable="true" name="dmg/ppu/renderer/oam_addr[6:0]">
-                <Signal>dmg/ppu/renderer/oam_addr[6]</Signal>
-                <Signal>dmg/ppu/renderer/oam_addr[5]</Signal>
-                <Signal>dmg/ppu/renderer/oam_addr[4]</Signal>
-                <Signal>dmg/ppu/renderer/oam_addr[3]</Signal>
-                <Signal>dmg/ppu/renderer/oam_addr[2]</Signal>
-                <Signal>dmg/ppu/renderer/oam_addr[1]</Signal>
-                <Signal>dmg/ppu/renderer/oam_addr[0]</Signal>
-            </Bus>
             <Signal capture_enable="true">dmg/ppu/oam_write</Signal>
-            <Bus capture_enable="true" name="dmg/ppu/d_wr[7:0]">
-                <Signal>dmg/ppu/d_wr[7]</Signal>
-                <Signal>dmg/ppu/d_wr[6]</Signal>
-                <Signal>dmg/ppu/d_wr[5]</Signal>
-                <Signal>dmg/ppu/d_wr[4]</Signal>
-                <Signal>dmg/ppu/d_wr[3]</Signal>
-                <Signal>dmg/ppu/d_wr[2]</Signal>
-                <Signal>dmg/ppu/d_wr[1]</Signal>
-                <Signal>dmg/ppu/d_wr[0]</Signal>
+            <Bus capture_enable="true" name="dmg/ppu/renderer/sprite.dy[2:0]">
+                <Signal>dmg/ppu/renderer/sprite.dy[2]</Signal>
+                <Signal>dmg/ppu/renderer/sprite.dy[1]</Signal>
+                <Signal>dmg/ppu/renderer/sprite.dy[0]</Signal>
             </Bus>
-            <Bus capture_enable="true" name="dmg/ppu/oam_db[15:0]">
-                <Signal>dmg/ppu/oam_db[15]</Signal>
-                <Signal>dmg/ppu/oam_db[14]</Signal>
-                <Signal>dmg/ppu/oam_db[13]</Signal>
-                <Signal>dmg/ppu/oam_db[12]</Signal>
-                <Signal>dmg/ppu/oam_db[11]</Signal>
-                <Signal>dmg/ppu/oam_db[10]</Signal>
-                <Signal>dmg/ppu/oam_db[9]</Signal>
-                <Signal>dmg/ppu/oam_db[8]</Signal>
-                <Signal>dmg/ppu/oam_db[7]</Signal>
-                <Signal>dmg/ppu/oam_db[6]</Signal>
-                <Signal>dmg/ppu/oam_db[5]</Signal>
-                <Signal>dmg/ppu/oam_db[4]</Signal>
-                <Signal>dmg/ppu/oam_db[3]</Signal>
-                <Signal>dmg/ppu/oam_db[2]</Signal>
-                <Signal>dmg/ppu/oam_db[1]</Signal>
-                <Signal>dmg/ppu/oam_db[0]</Signal>
+            <Bus capture_enable="true" name="dmg/ppu/renderer/sprites/ly[7:0]">
+                <Signal>dmg/ppu/renderer/sprites/ly[7]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/ly[6]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/ly[5]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/ly[4]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/ly[3]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/ly[2]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/ly[1]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/ly[0]</Signal>
+            </Bus>
+            <Bus capture_enable="true" name="dmg/ppu/renderer/sprites/lx[7:0]">
+                <Signal>dmg/ppu/renderer/sprites/lx[7]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/lx[6]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/lx[5]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/lx[4]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/lx[3]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/lx[2]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/lx[1]</Signal>
+                <Signal>dmg/ppu/renderer/sprites/lx[0]</Signal>
             </Bus>
         </SignalList>
         <Triggers>
@@ -75,7 +63,7 @@
             <Trigger index="15"/>
         </Triggers>
         <MatchUnits>
-            <MatchUnit index="0" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="X10" value1="000" trigger="0"/>
+            <MatchUnit index="0" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="101" value1="000" trigger="0"/>
             <MatchUnit index="1" enabled="1" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="1" value1="0" trigger="1"/>
             <MatchUnit index="2" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
             <MatchUnit index="3" enabled="0" match_type="0" counter_enable="0" counter_width="2" counter="2" countinuous="0" func="0" value0="" value1=""/>
@@ -97,5 +85,5 @@
             <Expression>M1</Expression>
         </Expressions>
     </AoCore>
-    <GAO_ID>1000101101110100</GAO_ID>
+    <GAO_ID>1110010000101110</GAO_ID>
 </GAO_CONFIG>
