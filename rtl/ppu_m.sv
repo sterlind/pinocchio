@@ -253,10 +253,12 @@ module scanline_renderer(
         endcase
     end
 
+    reg ce;
     always_ff @(posedge clk)
-        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; first_tile <= 1; in_sprite <= 0; end
+        if (~rst) begin lx <= 0; sprites_loaded <= 0; in_window <= 0; state <= S_FETCH_TILE; done <= 0; first_tile <= 1; in_sprite <= 0; ce <= 0; end
         else if (~done) begin
-            case (state)
+            ce <= ~ce;
+            if (ce) case (state)
                 S_FETCH_TILE: tile_id <= vram_in;
                 S_FETCH_DATA_LO: data_lo <= vram_in;
                 S_FETCH_DATA_HI: data_hi <= vram_in;
@@ -267,7 +269,7 @@ module scanline_renderer(
             else if (has_sprite) begin in_sprite <= 1; sprite <= sprite_out; end
 
             if (reset_fetcher) state <= S_FETCH_TILE;
-            else if (state != S_PUSH_FIFO) state <= renderer_state_t'(state + 1'b1);
+            else if (ce && state != S_PUSH_FIFO) state <= renderer_state_t'(state + 1'b1);
 
             if (~sprites_loaded && oam_addr == 7'd79) sprites_loaded <= 1;
 
