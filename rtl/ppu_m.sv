@@ -114,6 +114,13 @@ typedef struct packed {
     bit bg_ena;
 } lcdc_t;
 
+typedef struct packed {
+    bit lyc_int_sel;
+    bit mode2_int_sel;
+    bit mode1_int_sel;
+    bit mode0_int_sel;
+} int_sels_t;
+
 typedef enum logic [1:0] {
     PHASE_HBLANK,
     PHASE_VBLANK,
@@ -127,6 +134,7 @@ typedef enum logic [3:0] {
     SCY     = 4'h2,
     SCX     = 4'h3,
     LY      = 4'h4,
+    LYC     = 4'h5,
     BGP     = 4'h7,
     WY      = 4'ha,
     WX      = 4'hb
@@ -297,11 +305,11 @@ module ppu_m (
     output wire lcd_hsync, lcd_vsync, lcd_pixel,
     output wire [1:0] lcd_color,
     // IRQ:
-    output logic irq_vblank
+    output logic irq_vblank, irq_stat
 );
     // ~ Regs ~
     // Internal:
-    reg [7:0] ly, wlc;
+    reg [7:0] ly, lyc, wlc;
     reg wlc_valid;
     reg rst;
     reg frame_done, restart_frame;
@@ -310,12 +318,15 @@ module ppu_m (
 
     // External:
     lcdc_t lcdc;
+    int_sels_t int_sels;
     reg [7:0] scy, scx, bgp, wx, wy;
     always_comb case (reg_addr)
         LCDC: reg_d_rd = lcdc;
+        STAT: reg_d_rd = {1'b0, int_sels, lyc == ly, phase};
         SCY: reg_d_rd = scy;
         SCX: reg_d_rd = scx;
         LY: reg_d_rd = ly;
+        LYC: reg_d_rd = lyc;
         BGP: reg_d_rd = bgp;
         WX: reg_d_rd = wx;
         WY: reg_d_rd = wy;
@@ -323,12 +334,20 @@ module ppu_m (
     endcase
     always_ff @(posedge clk) if (reg_write) case (ppu_reg_t'(reg_addr))
         LCDC: lcdc <= d_wr;
+        STAT: int_sels <= d_wr[6:3];
+        LYC: lyc <= d_wr;
         SCY: scy <= d_wr;
         SCX: scx <= d_wr;
         BGP: bgp <= d_wr;
         WX: wx <= d_wr;
         WY: wy <= d_wr;
     endcase
+
+    assign irq_stat =
+        (int_sels.mode2_int_sel && phase == PHASE_OAM_SCAN) ||
+        (int_sels.mode1_int_sel && phase == PHASE_VBLANK) ||
+        (int_sels.mode0_int_sel && phase == PHASE_HBLANK) ||
+        (int_sels.lyc_int_sel && lyc == ly);
 
     wire [6:0] renderer_oam_addr;
     wire [12:0] renderer_vram_addr;

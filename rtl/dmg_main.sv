@@ -32,9 +32,9 @@ module dmg_main(
         else mcycle_ctr <= mcycle_ctr + 1'b1;
     assign cpu_ce = &mcycle_ctr;
 
-    wire irq_vblank;
+    wire irq_vblank, irq_stat;
     reg [7:0] irq;
-    assign irq = {7'b0, irq_vblank};
+    assign irq = {6'b0, irq_stat, irq_vblank};
 
     reg [7:0] bus_in, bus_out, cpu_d_out;
     wire [15:0] cpu_addr, bus_addr , dma_src_addr;
@@ -72,7 +72,8 @@ module dmg_main(
         .lcd_vsync(lcd_vsync),
         .lcd_pixel(lcd_pixel),
         .lcd_color(lcd_color),
-        .irq_vblank(irq_vblank)
+        .irq_vblank(irq_vblank),
+        .irq_stat(irq_stat)
     );
 
     wire [7:0] wram_d_rd;
