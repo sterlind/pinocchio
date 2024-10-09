@@ -71,7 +71,7 @@ module sprite_chain(
     // Buffer the first word of OAM, so we can assemble the whole entry before storing it in a slot.
     reg [15:0] oam_buf; 
     oam_entry_t entry;
-    assign entry = {oam_d_in, oam_buf};
+    assign entry = {oam_buf, oam_d_in};
 
     // Calculate y offset within sprite, and check if it's visible on this scan line.
     reg [7:0] dy, tile;
