@@ -91,7 +91,7 @@ module dmg_main(
 
     reg hide_boot;
     wire [7:0] boot_data;
-    boot_prom boot (
+    fast_boot_prom boot (
         .clk(~clk),
         .oce('x),
         .ce(1'b1),
