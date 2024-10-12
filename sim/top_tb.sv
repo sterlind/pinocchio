@@ -33,7 +33,7 @@ module top_tb;
 
     initial begin
         $dumpvars(0, dmg);
-        #10240000;
+        #1024;
         $display("Done");
         $finish;
     end

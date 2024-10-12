@@ -1,5 +1,4 @@
 FLAGS = -g2012
-SOURCES = rtl/*.sv sim/prim_sim.v rtl/blocks/*
 
 all: run
 
