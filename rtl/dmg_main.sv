@@ -117,6 +117,8 @@ module dmg_main(
         end
 
     assign rom_addr = bus_addr[14:0];
+    reg first_page;
+    assign first_page = ~|rom_addr[14:8];
     always_comb begin
         ppu_reg_write = 0; vram_write = 0; wram_write = 0; oam_write = 0;
         bus_in = 8'hff;
@@ -125,7 +127,7 @@ module dmg_main(
             VRAM: begin bus_in = vram_d_rd; vram_write = bus_write; end
             WRAM: begin bus_in = wram_d_rd; wram_write = bus_write; end
             OAM: begin bus_in = oam_d_rd; oam_write = bus_write; end
-            ADDR_ROM: begin bus_in = (hide_boot || |rom_addr[14:8]) ? rom_data : boot_data; end
+            ADDR_ROM: begin bus_in = (hide_boot || ~first_page) ? rom_data : boot_data; end
             OAM_DMA: bus_in = dma_base;
             PPU_REG: begin bus_in = reg_d_rd; ppu_reg_write = bus_write; end
         endcase

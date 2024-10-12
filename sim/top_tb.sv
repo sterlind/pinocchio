@@ -6,12 +6,11 @@ module top_tb;
     reg tclk;
     reg nrst;
     initial begin
-        nrst = 1; tclk = 0;
-        #1;
-        nrst = 0; #1;
-        nrst = 1; #1;
+        tclk = 0; nrst = 0;
         forever #1 tclk = ~tclk;
     end
+
+    initial #4 nrst = 1;
 
     wire [14:0] rom_addr;
     wire [7:0] rom_data;

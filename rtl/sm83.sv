@@ -796,13 +796,15 @@ module idu_m (
     input wire [1:0] adj_bits,
     output logic [15:0] res
 );
+    reg [7:0] abh, abl;
+    assign {abh, abl} = ab;
     always_comb
         case (mode)
             INC: res = ab + 1'b1;
             DEC: res = ab - 1'b1;
             ADJ: case (adj_bits)
-                2'b01: res = {ab[15:8] + 1'b1, ab[7:0]};
-                2'b10: res = {ab[15:8] - 1'b1, ab[7:0]};
+                2'b01: res = {abh + 1'b1, abl};
+                2'b10: res = {abh - 1'b1, abl};
                 default: res = ab;
             endcase
             default: res = ab;
