@@ -389,7 +389,7 @@ module ppu_m (
     assign oam_addr_rd = phase == PHASE_OAM_SCAN ? renderer_oam_addr : oam_addr_in[7:1];
     oam_sdpb oam_block (
         .clka(clk),
-        .cea(oam_write && (frame_done || scanline_done)),
+        .cea(oam_write && (frame_done || scanline_done || ~rst)),
         .reseta(1'b0),
         .clkb(~clk),
         .ceb(1'b1),
